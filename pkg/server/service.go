@@ -1,150 +1,67 @@
 package server
 
-// import (
-// 	"context"
-// 	"log"
+import (
+	"context"
 
-// 	"google.golang.org/grpc/codes"
-// 	"google.golang.org/grpc/status"
+	"github.com/prashantsinghb/workflow-engine/api/service"
+	"github.com/prashantsinghb/workflow-engine/pkg/workflow"
+	"github.com/prashantsinghb/workflow-engine/pkg/workflow/dag"
+)
 
-// 	pkgerrors "github.com/coredgeio/compass/pkg/errors"
-// 	"github.com/coredgeio/compass/pkg/utils"
+type WorkflowServer struct {
+	service.UnimplementedWorkflowServiceServer
+}
 
-// 	api "github.com/coredgeio/workflow-manager/api/service"
-// 	// Import your runtime tables if using MongoDB
-// 	// "github.com/coredgeio/workflow-manager/pkg/runtime/resource"
-// )
+func (s *WorkflowServer) ValidateWorkflow(ctx context.Context, req *service.ValidateWorkflowRequest) (*service.ValidateWorkflowResponse, error) {
+	def, err := workflow.Parse([]byte(req.Workflow.Yaml))
+	if err != nil {
+		return &service.ValidateWorkflowResponse{
+			Valid:  false,
+			Errors: []string{err.Error()},
+		}, nil
+	}
 
-// type ServiceApiServer struct {
-// 	api.UnimplementedServiceApiServer
-// 	// Add your dependencies here
-// 	// resourceTbl *resource.ResourceTable
-// }
+	g := dag.Build(def)
+	if err := dag.Validate(g); err != nil {
+		return &service.ValidateWorkflowResponse{
+			Valid:  false,
+			Errors: []string{err.Error()},
+		}, nil
+	}
 
-// func NewServiceApiServer() *ServiceApiServer {
-// 	// Initialize your tables/dependencies here
-// 	// resourceTbl, err := resource.LocateResourceTable()
-// 	// if err != nil {
-// 	// 	log.Fatalln("ServiceApiServer: failed to locate resource table", err)
-// 	// }
+	return &service.ValidateWorkflowResponse{
+		Valid: true,
+	}, nil
+}
 
-// 	return &ServiceApiServer{
-// 		// resourceTbl: resourceTbl,
-// 	}
-// }
+func (s *WorkflowServer) RegisterWorkflow(ctx context.Context, req *service.RegisterWorkflowRequest) (*service.RegisterWorkflowResponse, error) {
+	id, err := workflow.RegisterWorkflow(req.ProjectId, &workflow.WorkflowDefinition{
+		Name:    req.Workflow.Name,
+		Version: req.Workflow.Version,
+		YAML:    req.Workflow.Yaml,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &service.RegisterWorkflowResponse{WorkflowId: id}, nil
+}
 
-// func (s *ServiceApiServer) ListResources(ctx context.Context, req *api.ListResourcesReq) (*api.ListResourcesResp, error) {
-// 	// Implement your list logic here
-// 	// Example:
-// 	// count, err := s.resourceTbl.GetCountInProject(req.Domain, req.Project)
-// 	// if err != nil {
-// 	// 	log.Println("error fetching resource count in project", err)
-// 	// 	return nil, status.Errorf(codes.Internal, "Something went wrong, please try again")
-// 	// }
+func (s *WorkflowServer) StartWorkflow(ctx context.Context, req *service.StartWorkflowRequest) (*service.StartWorkflowResponse, error) {
+	id, err := workflow.StartWorkflow(req.ProjectId, req.WorkflowId, req.Inputs)
+	if err != nil {
+		return nil, err
+	}
+	return &service.StartWorkflowResponse{ExecutionId: id}, nil
+}
 
-// 	resp := &api.ListResourcesResp{
-// 		Count: 0,
-// 		Items: []*api.ResourceEntry{},
-// 	}
-
-// 	// Add your implementation here
-
-// 	return resp, nil
-// }
-
-// func (s *ServiceApiServer) GetResource(ctx context.Context, req *api.GetResourceReq) (*api.GetResourceResp, error) {
-// 	// Implement your get logic here
-// 	// Example:
-// 	// key := &resource.ResourceKey{
-// 	// 	Domain:  req.Domain,
-// 	// 	Project: req.Project,
-// 	// 	Name:    req.Name,
-// 	// }
-// 	//
-// 	// entry, err := s.resourceTbl.Find(key)
-// 	// if err != nil {
-// 	// 	if pkgerrors.IsNotFound(err) {
-// 	// 		return nil, status.Errorf(codes.NotFound, "Entry %q not found", *key)
-// 	// 	}
-// 	// 	log.Println("Error finding resource", *key, "error", err)
-// 	// 	return nil, status.Errorf(codes.Internal, "Something went wrong, please try again")
-// 	// }
-
-// 	resp := &api.GetResourceResp{
-// 		Name: req.Name,
-// 		// Add your response fields here
-// 	}
-
-// 	return resp, nil
-// }
-
-// func (s *ServiceApiServer) CreateResource(ctx context.Context, req *api.CreateResourceReq) (*api.CreateResourceResp, error) {
-// 	// Implement your create logic here
-// 	// Example:
-// 	// entry := &resource.ResourceEntry{
-// 	// 	Key: resource.ResourceKey{
-// 	// 		Domain:  req.Domain,
-// 	// 		Project: req.Project,
-// 	// 		Name:    req.Name,
-// 	// 	},
-// 	// 	Desc: utils.PString(req.Desc),
-// 	// 	Tags: req.Tags,
-// 	// }
-// 	//
-// 	// err := s.resourceTbl.Create(entry)
-// 	// if err != nil {
-// 	// 	log.Println("Error creating resource", entry.Key, "error", err)
-// 	// 	return nil, status.Errorf(codes.Internal, "Something went wrong, please try again")
-// 	// }
-
-// 	return &api.CreateResourceResp{}, nil
-// }
-
-// func (s *ServiceApiServer) UpdateResource(ctx context.Context, req *api.UpdateResourceReq) (*api.UpdateResourceResp, error) {
-// 	// Implement your update logic here
-// 	// Example:
-// 	// entry := &resource.ResourceEntry{
-// 	// 	Key: resource.ResourceKey{
-// 	// 		Domain:  req.Domain,
-// 	// 		Project: req.Project,
-// 	// 		Name:    req.Name,
-// 	// 	},
-// 	// 	Desc: utils.PString(req.Desc),
-// 	// 	Tags: req.Tags,
-// 	// }
-// 	//
-// 	// err := s.resourceTbl.Update(entry)
-// 	// if err != nil {
-// 	// 	if pkgerrors.IsNotFound(err) {
-// 	// 		return nil, status.Errorf(codes.NotFound, "Entry %q not found", entry.Key)
-// 	// 	}
-// 	// 	log.Println("Error updating resource", entry.Key, "error", err)
-// 	// 	return nil, status.Errorf(codes.Internal, "Something went wrong, please try again")
-// 	// }
-
-// 	return &api.UpdateResourceResp{}, nil
-// }
-
-// func (s *ServiceApiServer) DeleteResource(ctx context.Context, req *api.DeleteResourceReq) (*api.DeleteResourceResp, error) {
-// 	// Implement your delete logic here
-// 	// Example:
-// 	// entry := &resource.ResourceEntry{
-// 	// 	Key: resource.ResourceKey{
-// 	// 		Domain:  req.Domain,
-// 	// 		Project: req.Project,
-// 	// 		Name:    req.Name,
-// 	// 	},
-// 	// 	IsDeleted: true,
-// 	// }
-// 	//
-// 	// err := s.resourceTbl.Update(entry)
-// 	// if err != nil {
-// 	// 	if pkgerrors.IsNotFound(err) {
-// 	// 		return nil, status.Errorf(codes.NotFound, "Entry %q not found", entry.Key)
-// 	// 	}
-// 	// 	log.Println("Error deleting resource", entry.Key, "error", err)
-// 	// 	return nil, status.Errorf(codes.Internal, "Something went wrong, please try again")
-// 	// }
-
-// 	return &api.DeleteResourceResp{}, nil
-// }
+func (s *WorkflowServer) GetExecution(ctx context.Context, req *service.GetExecutionRequest) (*service.GetExecutionResponse, error) {
+	exec, err := workflow.GetExecution(req.ProjectId, req.ExecutionId)
+	if err != nil {
+		return nil, err
+	}
+	return &service.GetExecutionResponse{
+		State:   service.ExecutionState(service.ExecutionState_value[string(exec.State)]),
+		Outputs: exec.Output,
+		Error:   exec.Error,
+	}, nil
+}
