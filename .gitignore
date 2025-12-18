@@ -1,0 +1,32 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+service
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Generated files
+api/service/*.pb.go
+api/service/*_grpc.pb.go
+api/service/*.pb.gw.go
+api/service/*.pb.sdk.go
+api/service/swagger/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+

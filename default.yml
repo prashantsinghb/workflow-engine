@@ -1,0 +1,14 @@
+mongodb:
+  host: workflow-configdb
+  port: 27017
+metricsdb:
+  host: workflow-metricsdb
+  port: 27017
+
+# Service-specific configuration
+# Add your service configuration here
+service:
+  # Example:
+  # host: localhost
+  # port: 8080
+
