@@ -10,6 +10,13 @@ import (
 
 type WorkflowServer struct {
 	service.UnimplementedWorkflowServiceServer
+	store *workflow.InMemoryStore
+}
+
+func NewWorkflowServer() *WorkflowServer {
+	return &WorkflowServer{
+		store: workflow.NewInMemoryStore(),
+	}
 }
 
 func (s *WorkflowServer) ValidateWorkflow(ctx context.Context, req *service.ValidateWorkflowRequest) (*service.ValidateWorkflowResponse, error) {
@@ -35,7 +42,7 @@ func (s *WorkflowServer) ValidateWorkflow(ctx context.Context, req *service.Vali
 }
 
 func (s *WorkflowServer) RegisterWorkflow(ctx context.Context, req *service.RegisterWorkflowRequest) (*service.RegisterWorkflowResponse, error) {
-	id, err := workflow.RegisterWorkflow(req.ProjectId, &workflow.WorkflowDefinition{
+	id, err := s.store.RegisterWorkflow(req.ProjectId, &workflow.WorkflowDefinition{
 		Name:    req.Workflow.Name,
 		Version: req.Workflow.Version,
 		YAML:    req.Workflow.Yaml,
@@ -47,7 +54,7 @@ func (s *WorkflowServer) RegisterWorkflow(ctx context.Context, req *service.Regi
 }
 
 func (s *WorkflowServer) StartWorkflow(ctx context.Context, req *service.StartWorkflowRequest) (*service.StartWorkflowResponse, error) {
-	id, err := workflow.StartWorkflow(req.ProjectId, req.WorkflowId, req.Inputs)
+	id, err := s.store.StartWorkflow(req.ProjectId, req.WorkflowId, req.Inputs)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +62,7 @@ func (s *WorkflowServer) StartWorkflow(ctx context.Context, req *service.StartWo
 }
 
 func (s *WorkflowServer) GetExecution(ctx context.Context, req *service.GetExecutionRequest) (*service.GetExecutionResponse, error) {
-	exec, err := workflow.GetExecution(req.ProjectId, req.ExecutionId)
+	exec, err := s.store.GetExecution(req.ProjectId, req.ExecutionId)
 	if err != nil {
 		return nil, err
 	}
