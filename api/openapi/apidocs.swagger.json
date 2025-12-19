@@ -135,7 +135,7 @@
         ]
       }
     },
-    "/v1/workflows/validate": {
+    "/v1/projects/{projectId}/workflows:validate": {
       "post": {
         "summary": "Dry-run validation of a workflow definition",
         "operationId": "WorkflowService_ValidateWorkflow",
@@ -155,11 +155,17 @@
         },
         "parameters": [
           {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/v1ValidateWorkflowRequest"
+              "$ref": "#/definitions/WorkflowServiceValidateWorkflowBody"
             }
           }
         ],
@@ -189,14 +195,20 @@
         },
         "inputs": {
           "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
+          "additionalProperties": {}
         }
       },
       "required": [
         "workflowId"
       ]
+    },
+    "WorkflowServiceValidateWorkflowBody": {
+      "type": "object",
+      "properties": {
+        "workflow": {
+          "$ref": "#/definitions/v1WorkflowDefinition"
+        }
+      }
     },
     "protobufAny": {
       "type": "object",
@@ -206,6 +218,14 @@
         }
       },
       "additionalProperties": {}
+    },
+    "protobufNullValue": {
+      "type": "string",
+      "enum": [
+        "NULL_VALUE"
+      ],
+      "default": "NULL_VALUE",
+      "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\nThe JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
     },
     "rpcStatus": {
       "type": "object",
@@ -245,9 +265,7 @@
         },
         "outputs": {
           "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
+          "additionalProperties": {}
         },
         "error": {
           "type": "string"
@@ -269,17 +287,6 @@
           "type": "string"
         }
       }
-    },
-    "v1ValidateWorkflowRequest": {
-      "type": "object",
-      "properties": {
-        "workflow": {
-          "$ref": "#/definitions/v1WorkflowDefinition"
-        }
-      },
-      "required": [
-        "workflow"
-      ]
     },
     "v1ValidateWorkflowResponse": {
       "type": "object",

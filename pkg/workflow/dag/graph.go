@@ -1,6 +1,6 @@
 package dag
 
-import "github.com/prashantsinghb/workflow-engine/pkg/workflow"
+import "github.com/prashantsinghb/workflow-engine/pkg/workflow/api"
 
 type NodeID string
 
@@ -8,7 +8,7 @@ type Graph struct {
 	Nodes map[NodeID][]NodeID
 }
 
-func Build(def *workflow.Definition) Graph {
+func Build(def *api.Definition) Graph {
 	g := Graph{Nodes: map[NodeID][]NodeID{}}
 
 	for id, node := range def.Nodes {
