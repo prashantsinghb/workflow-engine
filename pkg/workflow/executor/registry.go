@@ -1,6 +1,8 @@
 package executor
 
-import "fmt"
+import (
+	"fmt"
+)
 
 var executors = map[string]Executor{}
 

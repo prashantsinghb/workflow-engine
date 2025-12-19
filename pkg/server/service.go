@@ -69,6 +69,7 @@ func (s *WorkflowServer) RegisterWorkflow(ctx context.Context, req *service.Regi
 
 func (s *WorkflowServer) StartWorkflow(ctx context.Context, req *service.StartWorkflowRequest) (*service.StartWorkflowResponse, error) {
 	def, err := registry.Get(req.ProjectId, req.WorkflowId)
+	tc, err := temporal.GetClientForProject(req.ProjectId)
 	if err != nil {
 		return nil, fmt.Errorf("workflow not found: %w", err)
 	}
@@ -84,7 +85,7 @@ func (s *WorkflowServer) StartWorkflow(ctx context.Context, req *service.StartWo
 		TaskQueue: "workflow-task-queue",
 	}
 
-	we, err := temporal.Client.ExecuteWorkflow(ctx, workflowOptions, temporal.WorkflowExecution, g, inputs)
+	we, err := tc.Client.ExecuteWorkflow(ctx, workflowOptions, temporal.WorkflowExecution, g, inputs)
 	if err != nil {
 		return nil, err
 	}

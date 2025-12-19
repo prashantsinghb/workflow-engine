@@ -28,7 +28,8 @@ func GetExecution(
 	projectID string,
 	executionID string,
 ) (*ExecutionInfo, error) {
-	desc, err := Describe(ctx, executionID, "")
+	tc, err := GetClientForProject(projectID)
+	desc, err := Describe(ctx, tc, executionID, "")
 	if err != nil {
 		return nil, fmt.Errorf("describe workflow: %w", err)
 	}
@@ -40,7 +41,7 @@ func GetExecution(
 	if info.Status == enums.WORKFLOW_EXECUTION_STATUS_FAILED ||
 		info.Status == enums.WORKFLOW_EXECUTION_STATUS_TIMED_OUT ||
 		info.Status == enums.WORKFLOW_EXECUTION_STATUS_TERMINATED {
-		wf := Client.GetWorkflow(ctx, executionID, "")
+		wf := tc.Client.GetWorkflow(ctx, executionID, "")
 		var resultErr error
 		err := wf.Get(ctx, &resultErr)
 		if err != nil {
