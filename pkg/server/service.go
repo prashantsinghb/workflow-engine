@@ -6,20 +6,15 @@ import (
 
 	"github.com/prashantsinghb/workflow-engine/api/service"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/dag"
-	"github.com/prashantsinghb/workflow-engine/pkg/workflow/execution"
-	"github.com/prashantsinghb/workflow-engine/pkg/workflow/executor"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/parser"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/registry"
+	"github.com/prashantsinghb/workflow-engine/pkg/workflow/temporal"
+	"go.temporal.io/sdk/client"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type WorkflowServer struct {
 	service.UnimplementedWorkflowServiceServer
-}
-
-// Initialize executors at package init
-func init() {
-	executor.Register("noop", &executor.NoopExecutor{})
 }
 
 func (s *WorkflowServer) ValidateWorkflow(ctx context.Context, req *service.ValidateWorkflowRequest) (*service.ValidateWorkflowResponse, error) {
@@ -73,54 +68,47 @@ func (s *WorkflowServer) RegisterWorkflow(ctx context.Context, req *service.Regi
 }
 
 func (s *WorkflowServer) StartWorkflow(ctx context.Context, req *service.StartWorkflowRequest) (*service.StartWorkflowResponse, error) {
-	inputs := make(map[string]interface{}, len(req.Inputs))
+	def, err := registry.Get(req.ProjectId, req.WorkflowId)
+	if err != nil {
+		return nil, fmt.Errorf("workflow not found: %w", err)
+	}
+	g := dag.Build(def.Def)
+
+	inputs := map[string]interface{}{}
 	for k, v := range req.Inputs {
-		val, err := structpbToInterface(v)
-		if err != nil {
-			return nil, fmt.Errorf("invalid input %s: %w", k, err)
-		}
-		inputs[k] = val
+		inputs[k] = v.AsInterface()
 	}
 
-	execID, err := execution.Start(
-		ctx,
-		req.ProjectId,
-		req.WorkflowId,
-		inputs,
-		executor.All(),
-	)
+	workflowOptions := client.StartWorkflowOptions{
+		ID:        req.ProjectId + "-" + req.WorkflowId,
+		TaskQueue: "workflow-task-queue",
+	}
+
+	we, err := temporal.Client.ExecuteWorkflow(ctx, workflowOptions, temporal.WorkflowExecution, g, inputs)
 	if err != nil {
 		return nil, err
 	}
 
 	return &service.StartWorkflowResponse{
-		ExecutionId: execID,
+		ExecutionId: we.GetID(),
 	}, nil
 }
 
 func (s *WorkflowServer) GetExecution(ctx context.Context, req *service.GetExecutionRequest) (*service.GetExecutionResponse, error) {
-	exec, err := execution.GetExecution(req.ProjectId, req.ExecutionId)
+	info, err := temporal.GetExecution(
+		ctx,
+		req.ProjectId,
+		req.ExecutionId,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	state := service.ExecutionState(
-		service.ExecutionState_value[string(exec.State)],
-	)
-
-	outputs := make(map[string]*structpb.Value, len(exec.Outputs))
-	for nodeID, nodeOutputs := range exec.Outputs {
-		val, err := structpb.NewValue(nodeOutputs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert node outputs for nodes %s: %w", err)
-		}
-		outputs[string(nodeID)] = val
-	}
-
 	return &service.GetExecutionResponse{
-		State:   state,
-		Outputs: outputs,
-		Error:   exec.Error,
+		State: service.ExecutionState(
+			service.ExecutionState_value[string(info.State)],
+		),
+		Error: info.Error,
 	}, nil
 }
 
