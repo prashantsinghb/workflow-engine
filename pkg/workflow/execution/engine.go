@@ -46,8 +46,9 @@ func Start(
 		return "", err
 	}
 
-	g := dag.Build(wf.Def)
+	graph := dag.Build(wf.Def)
 
+	mu.Lock()
 	counter++
 	execID := fmt.Sprintf("%s-exec-%d", workflowID, counter)
 
@@ -59,19 +60,18 @@ func Start(
 		Outputs:  make(map[dag.NodeID]map[string]interface{}),
 	}
 
-	mu.Lock()
 	if executions[projectID] == nil {
 		executions[projectID] = make(map[string]*Execution)
 	}
 	executions[projectID][execID] = exec
 	mu.Unlock()
 
-	done := map[dag.NodeID]bool{}
+	done := make(map[dag.NodeID]bool)
 
-	for len(done) < len(g.Nodes) {
+	for len(done) < len(graph.Nodes) {
 		progress := false
 
-		for id, node := range g.Nodes {
+		for id, node := range graph.Nodes {
 			if done[id] {
 				continue
 			}

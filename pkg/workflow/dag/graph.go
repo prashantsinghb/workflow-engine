@@ -1,8 +1,6 @@
 package dag
 
 import (
-	"context"
-
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/api"
 )
 
@@ -11,11 +9,8 @@ type NodeID string
 type Node struct {
 	ID       NodeID
 	Depends  []NodeID
+	Children []NodeID
 	Executor string
-}
-
-type Executor interface {
-	Execute(ctx context.Context, node *Node, inputs map[string]interface{}) (map[string]interface{}, error)
 }
 
 type Graph struct {
@@ -31,13 +26,20 @@ func Build(def *api.Definition) *Graph {
 		g.Nodes[NodeID(id)] = &Node{
 			ID:       NodeID(id),
 			Executor: n.Uses,
+			Depends:  []NodeID{},
+			Children: []NodeID{},
 		}
 	}
 
 	for id, n := range def.Nodes {
 		node := g.Nodes[NodeID(id)]
 		for _, dep := range n.DependsOn {
-			node.Depends = append(node.Depends, NodeID(dep))
+			depID := NodeID(dep)
+			node.Depends = append(node.Depends, depID)
+
+			if parent, ok := g.Nodes[depID]; ok {
+				parent.Children = append(parent.Children, NodeID(id))
+			}
 		}
 	}
 

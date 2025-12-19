@@ -17,7 +17,3 @@ func (n *NoopExecutor) Execute(
 		"node_id": string(node.ID),
 	}, nil
 }
-
-func init() {
-	DefaultRegistry["noop"] = &NoopExecutor{}
-}

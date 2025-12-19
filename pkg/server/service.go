@@ -17,6 +17,11 @@ type WorkflowServer struct {
 	service.UnimplementedWorkflowServiceServer
 }
 
+// Initialize executors at package init
+func init() {
+	executor.Register("noop", &executor.NoopExecutor{})
+}
+
 func (s *WorkflowServer) ValidateWorkflow(ctx context.Context, req *service.ValidateWorkflowRequest) (*service.ValidateWorkflowResponse, error) {
 	if req.Workflow == nil {
 		return &service.ValidateWorkflowResponse{
@@ -82,7 +87,7 @@ func (s *WorkflowServer) StartWorkflow(ctx context.Context, req *service.StartWo
 		req.ProjectId,
 		req.WorkflowId,
 		inputs,
-		executor.DefaultRegistry,
+		executor.All(),
 	)
 	if err != nil {
 		return nil, err
@@ -103,16 +108,13 @@ func (s *WorkflowServer) GetExecution(ctx context.Context, req *service.GetExecu
 		service.ExecutionState_value[string(exec.State)],
 	)
 
-	outputs := map[string]*structpb.Value{}
-	for nodeID, values := range exec.Outputs {
-		for k, v := range values {
-			key := string(nodeID) + "." + k
-			val, err := structpb.NewValue(v)
-			if err != nil {
-				return nil, err
-			}
-			outputs[key] = val
+	outputs := make(map[string]*structpb.Value, len(exec.Outputs))
+	for nodeID, nodeOutputs := range exec.Outputs {
+		val, err := structpb.NewValue(nodeOutputs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert node outputs for nodes %s: %w", err)
 		}
+		outputs[string(nodeID)] = val
 	}
 
 	return &service.GetExecutionResponse{

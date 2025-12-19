@@ -252,7 +252,7 @@
         "EXECUTION_STATE_UNSPECIFIED",
         "PENDING",
         "RUNNING",
-        "SUCCEEDED",
+        "SUCCESS",
         "FAILED"
       ],
       "default": "EXECUTION_STATE_UNSPECIFIED"
