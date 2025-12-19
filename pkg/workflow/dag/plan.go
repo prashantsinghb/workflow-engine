@@ -1,23 +1,23 @@
 package dag
 
-func TopologicalSort(g Graph) []NodeID {
+func Plan(g *Graph) []NodeID {
 	visited := map[NodeID]bool{}
 	order := []NodeID{}
 
 	var visit func(NodeID)
-	visit = func(n NodeID) {
-		if visited[n] {
+	visit = func(id NodeID) {
+		if visited[id] {
 			return
 		}
-		visited[n] = true
-		for _, d := range g.Nodes[n] {
-			visit(d)
+		visited[id] = true
+		for _, dep := range g.Nodes[id].Depends {
+			visit(dep)
 		}
-		order = append(order, n)
+		order = append(order, id)
 	}
 
-	for n := range g.Nodes {
-		visit(n)
+	for id := range g.Nodes {
+		visit(id)
 	}
 
 	return order

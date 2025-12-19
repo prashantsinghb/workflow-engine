@@ -3,13 +3,13 @@ package dag
 func Ready(g Graph, completed map[NodeID]bool) []NodeID {
 	ready := []NodeID{}
 
-	for n, deps := range g.Nodes {
-		if completed[n] {
+	for id, node := range g.Nodes {
+		if completed[id] {
 			continue
 		}
 
 		ok := true
-		for _, d := range deps {
+		for _, d := range node.Depends {
 			if !completed[d] {
 				ok = false
 				break
@@ -17,7 +17,7 @@ func Ready(g Graph, completed map[NodeID]bool) []NodeID {
 		}
 
 		if ok {
-			ready = append(ready, n)
+			ready = append(ready, id)
 		}
 	}
 

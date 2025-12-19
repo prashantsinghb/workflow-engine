@@ -34,7 +34,7 @@ func (s *WorkflowServer) ValidateWorkflow(ctx context.Context, req *service.Vali
 	}
 
 	g := dag.Build(def)
-	if err := dag.Validate(g); err != nil {
+	if err := dag.Validate(*g); err != nil {
 		return &service.ValidateWorkflowResponse{
 			Valid:  false,
 			Errors: []string{err.Error()},
@@ -77,20 +77,20 @@ func (s *WorkflowServer) StartWorkflow(ctx context.Context, req *service.StartWo
 		inputs[k] = val
 	}
 
-	execID, err := execution.Start(req.ProjectId, req.WorkflowId, inputs)
+	execID, err := execution.Start(
+		ctx,
+		req.ProjectId,
+		req.WorkflowId,
+		inputs,
+		executor.DefaultRegistry,
+	)
 	if err != nil {
 		return nil, err
 	}
-	wf, _ := registry.Get(req.ProjectId, req.WorkflowId)
-	for name, node := range wf.Def.Nodes {
-		output, err := executor.RunNode(node, inputs)
-		if err != nil {
-			return &service.StartWorkflowResponse{ExecutionId: execID}, fmt.Errorf("node %s failed: %w", name, err)
-		}
-		_ = output
-	}
 
-	return &service.StartWorkflowResponse{ExecutionId: execID}, nil
+	return &service.StartWorkflowResponse{
+		ExecutionId: execID,
+	}, nil
 }
 
 func (s *WorkflowServer) GetExecution(ctx context.Context, req *service.GetExecutionRequest) (*service.GetExecutionResponse, error) {
@@ -98,15 +98,23 @@ func (s *WorkflowServer) GetExecution(ctx context.Context, req *service.GetExecu
 	if err != nil {
 		return nil, err
 	}
-	state := service.ExecutionState(service.ExecutionState_value[string(exec.State)])
-	outputs := make(map[string]*structpb.Value, len(exec.Output))
-	for k, v := range exec.Output {
-		val, err := structpb.NewValue(v)
-		if err != nil {
-			return nil, err
+
+	state := service.ExecutionState(
+		service.ExecutionState_value[string(exec.State)],
+	)
+
+	outputs := map[string]*structpb.Value{}
+	for nodeID, values := range exec.Outputs {
+		for k, v := range values {
+			key := string(nodeID) + "." + k
+			val, err := structpb.NewValue(v)
+			if err != nil {
+				return nil, err
+			}
+			outputs[key] = val
 		}
-		outputs[k] = val
 	}
+
 	return &service.GetExecutionResponse{
 		State:   state,
 		Outputs: outputs,

@@ -14,9 +14,14 @@ func Validate(g Graph) error {
 		if visited[n] {
 			return nil
 		}
+		node, ok := g.Nodes[n]
+		if !ok {
+			return fmt.Errorf("unknown node %s", n)
+		}
+
 		visited[n] = true
 		stack[n] = true
-		for _, dep := range g.Nodes[n] {
+		for _, dep := range node.Depends {
 			if _, ok := g.Nodes[dep]; !ok {
 				return fmt.Errorf("node %s depends on unknown node %s", n, dep)
 			}

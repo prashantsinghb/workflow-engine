@@ -1,16 +1,23 @@
 package executor
 
 import (
-	"fmt"
+	"context"
 
-	"github.com/prashantsinghb/workflow-engine/pkg/workflow/api"
+	"github.com/prashantsinghb/workflow-engine/pkg/workflow/dag"
 )
 
-func RunNode(node api.Node, inputs map[string]interface{}) (map[string]interface{}, error) {
-	switch node.Uses {
-	case "noop":
-		return inputs, nil
-	default:
-		return nil, fmt.Errorf("unknown executor type: %s", node.Uses)
-	}
+type NoopExecutor struct{}
+
+func (n *NoopExecutor) Execute(
+	ctx context.Context,
+	node *dag.Node,
+	inputs map[string]interface{},
+) (map[string]interface{}, error) {
+	return map[string]interface{}{
+		"node_id": string(node.ID),
+	}, nil
+}
+
+func init() {
+	DefaultRegistry["noop"] = &NoopExecutor{}
 }
