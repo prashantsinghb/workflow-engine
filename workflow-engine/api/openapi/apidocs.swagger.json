@@ -8,6 +8,9 @@
   "tags": [
     {
       "name": "WorkflowService"
+    },
+    {
+      "name": "ModuleService"
     }
   ],
   "schemes": [
@@ -96,6 +99,114 @@
         ]
       }
     },
+    "/v1/projects/{projectId}/modules": {
+      "get": {
+        "operationId": "ModuleService_ListModules",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListModulesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ModuleService"
+        ]
+      },
+      "post": {
+        "operationId": "ModuleService_RegisterModule",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RegisterModuleResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ModuleServiceRegisterModuleBody"
+            }
+          }
+        ],
+        "tags": [
+          "ModuleService"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/modules/{name}/versions/{version}": {
+      "get": {
+        "operationId": "ModuleService_GetModule",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetModuleResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ModuleService"
+        ]
+      }
+    },
     "/v1/projects/{projectId}/workflows": {
       "post": {
         "summary": "Register a workflow under a project",
@@ -176,6 +287,34 @@
     }
   },
   "definitions": {
+    "ModuleServiceRegisterModuleBody": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "runtime": {
+          "type": "string"
+        },
+        "http": {
+          "$ref": "#/definitions/v1HttpModuleSpec"
+        },
+        "containerRegistry": {
+          "$ref": "#/definitions/v1ContainerRegistryModuleSpec"
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": {}
+        },
+        "outputs": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      }
+    },
     "WorkflowServiceRegisterWorkflowBody": {
       "type": "object",
       "properties": {
@@ -250,6 +389,32 @@
         }
       }
     },
+    "v1ContainerRegistryModuleSpec": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "type": "string"
+        },
+        "command": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "cpu": {
+          "type": "string"
+        },
+        "memory": {
+          "type": "string"
+        }
+      }
+    },
     "v1ExecutionState": {
       "type": "string",
       "enum": [
@@ -272,6 +437,103 @@
           "additionalProperties": {}
         },
         "error": {
+          "type": "string"
+        }
+      }
+    },
+    "v1GetModuleResponse": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "$ref": "#/definitions/v1Module"
+        }
+      }
+    },
+    "v1HttpModuleSpec": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "queryParams": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "bodyTemplate": {
+          "type": "object"
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "retryCount": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "v1ListModulesResponse": {
+      "type": "object",
+      "properties": {
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1Module"
+          }
+        }
+      }
+    },
+    "v1Module": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "runtime": {
+          "type": "string",
+          "title": "http | docker"
+        },
+        "http": {
+          "$ref": "#/definitions/v1HttpModuleSpec"
+        },
+        "containerRegistry": {
+          "$ref": "#/definitions/v1ContainerRegistryModuleSpec"
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": {}
+        },
+        "outputs": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      }
+    },
+    "v1RegisterModuleResponse": {
+      "type": "object",
+      "properties": {
+        "moduleId": {
           "type": "string"
         }
       }

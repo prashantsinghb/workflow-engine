@@ -4,7 +4,6 @@
 *.dll
 *.so
 *.dylib
-service
 
 # Test binary
 *.test
@@ -12,12 +11,18 @@ service
 # Output of the go coverage tool
 *.out
 
-# Generated files
-api/service/*.pb.go
-api/service/*_grpc.pb.go
-api/service/*.pb.gw.go
-api/service/*.pb.sdk.go
-api/service/swagger/
+# Generated files (Go)
+workflow-engine/api/service/*.pb.go
+workflow-engine/api/service/*_grpc.pb.go
+workflow-engine/api/service/*.pb.gw.go
+workflow-engine/api/service/*.pb.sdk.go
+workflow-engine/api/service/swagger/
+
+# Node modules (UI)
+workflow-ui/node_modules/
+workflow-ui/dist/
+workflow-ui/.vite/
+workflow-ui/build/
 
 # IDE
 .idea/
@@ -29,4 +34,24 @@ api/service/swagger/
 # OS
 .DS_Store
 Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+workflow-ui/.env
+workflow-engine/.env
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Service binaries
+workflow-engine/service
+workflow-engine/cmd/service/service
+
+# Docker compose (has its own git repo - add as submodule if needed)
+docker-compose/
 
