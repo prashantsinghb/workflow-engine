@@ -1,0 +1,209 @@
+package execution
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type PostgresStore struct {
+	db *sql.DB
+}
+
+func NewPostgresStore(db *sql.DB) *PostgresStore {
+	return &PostgresStore{db: db}
+}
+
+func (s *PostgresStore) CreateExecution(ctx context.Context, exec *Execution) error {
+	if exec.ID == "" {
+		exec.ID = uuid.NewString()
+	}
+
+	inputs, _ := json.Marshal(exec.Inputs)
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO executions (
+			id, project_id, workflow_id, client_request_id,
+			temporal_workflow_id,
+			state, inputs
+		)
+		VALUES ($1,$2,$3,$4,$5,$6,$7)
+		ON CONFLICT (project_id, workflow_id, client_request_id)
+		DO NOTHING
+	`,
+		exec.ID,
+		exec.ProjectID,
+		exec.WorkflowID,
+		exec.ClientRequestID,
+		exec.TemporalWorkflowID,
+		exec.State,
+		inputs,
+	)
+
+	return err
+}
+
+func (s *PostgresStore) GetExecution(ctx context.Context, projectID, executionID string) (*Execution, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, project_id, workflow_id,
+		       temporal_workflow_id, temporal_run_id,
+		       state, error, inputs, outputs,
+		       started_at, completed_at, created_at, updated_at
+		FROM executions
+		WHERE project_id = $1 AND id = $2
+	`, projectID, executionID)
+
+	var exec Execution
+	var inputs, outputs []byte
+
+	err := row.Scan(
+		&exec.ID,
+		&exec.ProjectID,
+		&exec.WorkflowID,
+		&exec.TemporalWorkflowID,
+		&exec.TemporalRunID,
+		&exec.State,
+		&exec.Error,
+		&inputs,
+		&outputs,
+		&exec.StartedAt,
+		&exec.CompletedAt,
+		&exec.CreatedAt,
+		&exec.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = json.Unmarshal(inputs, &exec.Inputs)
+	_ = json.Unmarshal(outputs, &exec.Outputs)
+
+	return &exec, nil
+}
+
+func (s *PostgresStore) GetByIdempotencyKey(
+	ctx context.Context,
+	projectID string,
+	workflowID string,
+	clientRequestID string,
+) (*Execution, error) {
+
+	query := `
+		SELECT
+			id,
+			project_id,
+			workflow_id,
+			client_request_id,
+			temporal_workflow_id,
+			temporal_run_id,
+			state,
+			error,
+			inputs,
+			outputs,
+			started_at,
+			completed_at,
+			created_at,
+			updated_at
+		FROM executions
+		WHERE project_id = $1
+		  AND workflow_id = $2
+		  AND client_request_id = $3
+	`
+
+	row := s.db.QueryRowContext(
+		ctx,
+		query,
+		projectID,
+		workflowID,
+		clientRequestID,
+	)
+
+	var e Execution
+	if err := row.Scan(
+		&e.ID,
+		&e.ProjectID,
+		&e.WorkflowID,
+		&e.ClientRequestID,
+		&e.TemporalWorkflowID,
+		&e.TemporalRunID,
+		&e.State,
+		&e.Error,
+		&e.Inputs,
+		&e.Outputs,
+		&e.StartedAt,
+		&e.CompletedAt,
+		&e.CreatedAt,
+		&e.UpdatedAt,
+	); err != nil {
+		return nil, err
+	}
+
+	return &e, nil
+}
+
+func (s *PostgresStore) MarkRunning(ctx context.Context, executionID, runID string) error {
+	query := `
+		UPDATE executions
+		SET
+			state = 'RUNNING',
+			temporal_run_id = $2,
+			started_at = now(),
+			updated_at = now()
+		WHERE id = $1
+	`
+
+	_, err := s.db.ExecContext(ctx, query, executionID, runID)
+	return err
+}
+
+func (s *PostgresStore) ListRunningExecutions(ctx context.Context) ([]*Execution, error) {
+	query := `SELECT id, project_id, workflow_id, client_request_id, temporal_workflow_id, state FROM executions WHERE state = 'RUNNING'`
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var executions []*Execution
+	for rows.Next() {
+		var e Execution
+		if err := rows.Scan(&e.ID, &e.ProjectID, &e.WorkflowID, &e.ClientRequestID, &e.TemporalWorkflowID, &e.State); err != nil {
+			return nil, err
+		}
+		executions = append(executions, &e)
+	}
+	return executions, nil
+}
+
+func (s *PostgresStore) MarkCompleted(ctx context.Context, executionID string) error {
+	query := `UPDATE executions SET state='COMPLETED', completed_at=now(), updated_at=now() WHERE id=$1`
+	_, err := s.db.ExecContext(ctx, query, executionID)
+	return err
+}
+
+func (s *PostgresStore) MarkFailed(ctx context.Context, executionID string, errMsg string) error {
+	now := time.Now()
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE executions
+		SET state = $1,
+		    error = $2,
+		    completed_at = $3,
+		    updated_at = now()
+		WHERE id = $4
+	`,
+		StateFailed,
+		errMsg,
+		now,
+		executionID,
+	)
+	return err
+}
+
+func (s *PostgresStore) UpdateNodeOutputs(ctx context.Context, nodeID string, outputs map[string]interface{}) error {
+	query := `UPDATE nodes SET outputs=$2, updated_at=now() WHERE id=$1`
+	_, err := s.db.ExecContext(ctx, query, nodeID, outputs)
+	return err
+}

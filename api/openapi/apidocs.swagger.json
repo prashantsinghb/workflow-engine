@@ -196,10 +196,14 @@
         "inputs": {
           "type": "object",
           "additionalProperties": {}
+        },
+        "clientRequestId": {
+          "type": "string"
         }
       },
       "required": [
-        "workflowId"
+        "workflowId",
+        "clientRequestId"
       ]
     },
     "WorkflowServiceValidateWorkflowBody": {
@@ -284,6 +288,9 @@
       "type": "object",
       "properties": {
         "executionId": {
+          "type": "string"
+        },
+        "state": {
           "type": "string"
         }
       }

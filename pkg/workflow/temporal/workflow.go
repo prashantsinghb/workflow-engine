@@ -34,10 +34,10 @@ func WorkflowExecution(ctx workflow.Context, g *dag.Graph, inputs map[string]int
 			ao := workflow.ActivityOptions{
 				StartToCloseTimeout: time.Minute,
 				RetryPolicy: &temporal.RetryPolicy{
-					InitialInterval:    time.Second,
-					BackoffCoefficient: 2.0,
-					MaximumInterval:    10 * time.Second,
-					MaximumAttempts:    3,
+					InitialInterval:    time.Second * 5,
+					BackoffCoefficient: 2,
+					MaximumInterval:    time.Minute,
+					MaximumAttempts:    5,
 				},
 			}
 			ctx1 := workflow.WithActivityOptions(ctx, ao)
