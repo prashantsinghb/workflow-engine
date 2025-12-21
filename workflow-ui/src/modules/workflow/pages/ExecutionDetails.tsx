@@ -17,14 +17,15 @@ import { ExpandMore as ExpandMoreIcon } from "@mui/icons-material";
 import { workflowApi } from "@/services/client/workflowApi";
 import { ExecutionState, GetExecutionResponse } from "@/types/workflow";
 import { toast } from "react-toastify";
+import { useProject } from "@/contexts/ProjectContext";
 
 const ExecutionDetails = () => {
   const { executionId } = useParams<{ executionId: string }>();
   const navigate = useNavigate();
+  const { projectId } = useProject();
   const [execution, setExecution] = useState<GetExecutionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
-  const [projectId] = useState("default-project");
 
   const getStateColor = (state: ExecutionState) => {
     switch (state) {

@@ -25,14 +25,15 @@ import "ace-builds/src-noconflict/theme-github";
 import { moduleApi } from "@/services/client/moduleApi";
 import { toast } from "react-toastify";
 import type { Module } from "@/types/module";
+import { useProject } from "@/contexts/ProjectContext";
 
 const ModuleDetails = () => {
   const { name, version } = useParams<{ name: string; version: string }>();
   const navigate = useNavigate();
+  const { projectId } = useProject();
   const [module, setModule] = useState<Module | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const projectId = "default-project"; // TODO: Get from context or route
 
   useEffect(() => {
     if (name && version) {

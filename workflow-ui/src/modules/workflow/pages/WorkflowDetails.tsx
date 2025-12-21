@@ -16,14 +16,15 @@ import * as Yup from "yup";
 import { workflowApi } from "@/services/client/workflowApi";
 import { GetWorkflowResponse } from "@/types/workflow";
 import { toast } from "react-toastify";
+import { useProject } from "@/contexts/ProjectContext";
 
 const WorkflowDetails = () => {
   const { workflowId } = useParams<{ workflowId: string }>();
   const navigate = useNavigate();
+  const { projectId } = useProject();
   const [workflow, setWorkflow] = useState<GetWorkflowResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const projectId = "default-project";
 
   useEffect(() => {
     const fetchWorkflow = async () => {

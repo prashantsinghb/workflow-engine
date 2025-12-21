@@ -33,6 +33,7 @@ import "ace-builds/src-noconflict/theme-github";
 import { moduleApi } from "@/services/client/moduleApi";
 import { toast } from "react-toastify";
 import type { HttpModuleSpec, ContainerRegistryModuleSpec } from "@/types/module";
+import { useProject } from "@/contexts/ProjectContext";
 
 const defaultInputs = `{
   "name": "string",
@@ -85,6 +86,7 @@ const validationSchema = Yup.object({
 
 const ModuleCreate = () => {
   const navigate = useNavigate();
+  const { projectId: contextProjectId } = useProject();
   const [expandedSection, setExpandedSection] = useState<string | false>("basic");
 
   const handleSectionChange = (section: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
@@ -169,7 +171,7 @@ const ModuleCreate = () => {
               }
             }
 
-            const projectId = values.isGlobal ? "global" : "default-project";
+            const projectId = values.isGlobal ? "global" : contextProjectId;
 
             let spec: HttpModuleSpec | ContainerRegistryModuleSpec | undefined;
 

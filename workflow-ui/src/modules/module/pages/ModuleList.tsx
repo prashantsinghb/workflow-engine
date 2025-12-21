@@ -29,13 +29,14 @@ import {
 import { toast } from "react-toastify";
 import { moduleApi } from "@/services/client/moduleApi";
 import type { Module } from "@/types/module";
+import { useProject } from "@/contexts/ProjectContext";
 
 const ModuleList = () => {
   const navigate = useNavigate();
+  const { projectId } = useProject();
   const [modules, setModules] = useState<Module[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
-  const projectId = "default-project"; // TODO: Get from context or route
 
   useEffect(() => {
     loadModules();

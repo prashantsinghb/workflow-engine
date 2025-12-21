@@ -82,6 +82,7 @@ export interface ListExecutionsRequest {
 export interface ExecutionInfo {
   id: string;
   workflowId: string;
+  workflowName?: string;
   projectId: string;
   clientRequestId: string;
   state: string;

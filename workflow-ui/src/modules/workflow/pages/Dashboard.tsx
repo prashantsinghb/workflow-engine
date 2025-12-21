@@ -17,9 +17,11 @@ import {
 import { useNavigate } from "react-router-dom";
 import { workflowApi } from "@/services/client/workflowApi";
 import { toast } from "react-toastify";
+import { useProject } from "@/contexts/ProjectContext";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { projectId } = useProject();
   const [stats, setStats] = useState({
     totalWorkflows: 0,
     totalExecutions: 0,
@@ -27,7 +29,6 @@ const Dashboard = () => {
     successRate: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [projectId] = useState("default-project");
 
   useEffect(() => {
     const fetchStats = async () => {

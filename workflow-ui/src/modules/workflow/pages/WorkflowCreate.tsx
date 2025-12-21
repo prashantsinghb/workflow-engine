@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -17,6 +17,7 @@ import "ace-builds/src-noconflict/mode-yaml";
 import "ace-builds/src-noconflict/theme-github";
 import { workflowApi } from "@/services/client/workflowApi";
 import { toast } from "react-toastify";
+import { useProject } from "@/contexts/ProjectContext";
 
 const defaultYaml = `nodes:
   step1:
@@ -43,6 +44,7 @@ const validationSchema = Yup.object({
 
 const WorkflowCreate = () => {
   const navigate = useNavigate();
+  const { projectId } = useProject();
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{ valid: boolean; errors: string[] } | null>(null);
 
@@ -79,11 +81,12 @@ const WorkflowCreate = () => {
       </Typography>
 
       <Formik
+        enableReinitialize
         initialValues={{
           name: "",
           version: "1.0.0",
           yaml: defaultYaml,
-          projectId: "default-project",
+          projectId: projectId,
         }}
         validationSchema={validationSchema}
         onSubmit={async (values, { setSubmitting }) => {
@@ -162,6 +165,7 @@ const WorkflowCreate = () => {
                   error={touched.projectId && !!errors.projectId}
                   helperText={touched.projectId && errors.projectId}
                   margin="normal"
+                  disabled
                 />
               </Grid>
               <Grid item xs={12}>

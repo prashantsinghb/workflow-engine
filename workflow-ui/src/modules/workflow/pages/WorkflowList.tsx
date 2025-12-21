@@ -29,14 +29,15 @@ import {
 import { workflowApi } from "@/services/client/workflowApi";
 import { WorkflowInfo } from "@/types/workflow";
 import { toast } from "react-toastify";
+import { useProject } from "@/contexts/ProjectContext";
 
 const WorkflowList = () => {
   const navigate = useNavigate();
+  const { projectId } = useProject();
   const [workflows, setWorkflows] = useState<WorkflowInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const projectId = "default-project";
 
   useEffect(() => {
     const fetchWorkflows = async () => {

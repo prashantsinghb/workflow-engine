@@ -574,6 +574,10 @@
         "workflowId": {
           "type": "string"
         },
+        "workflowName": {
+          "type": "string",
+          "title": "Workflow name for display"
+        },
         "projectId": {
           "type": "string"
         },

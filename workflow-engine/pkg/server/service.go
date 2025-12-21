@@ -316,14 +316,36 @@ func (s *WorkflowServer) ListExecutions(
 		Executions: make([]*service.ExecutionInfo, len(execs)),
 	}
 
+	// Fetch workflow names for all unique workflow IDs
+	workflowNames := make(map[string]string)
+	workflowIDs := make(map[string]bool)
+	for _, e := range execs {
+		if !workflowIDs[e.WorkflowID] {
+			workflowIDs[e.WorkflowID] = true
+		}
+	}
+
+	// Fetch workflow names
+	for workflowID := range workflowIDs {
+		wf, err := s.wfStore.Get(ctx, req.ProjectId, workflowID)
+		if err == nil && wf != nil {
+			workflowNames[workflowID] = wf.Name
+		}
+	}
+
 	for i, e := range execs {
+		workflowName := workflowNames[e.WorkflowID]
+		if workflowName == "" {
+			workflowName = e.WorkflowID // Fallback to ID if name not found
+		}
 		res.Executions[i] = &service.ExecutionInfo{
-			Id:              e.ID,
-			WorkflowId:      e.WorkflowID,
-			ProjectId:       e.ProjectID,
+			Id:           e.ID,
+			WorkflowId:   e.WorkflowID,
+			WorkflowName: workflowName,
+			ProjectId:    e.ProjectID,
 			ClientRequestId: e.ClientRequestID,
-			State:           string(e.State),
-			Error:           e.Error,
+			State:        string(e.State),
+			Error:        e.Error,
 		}
 	}
 

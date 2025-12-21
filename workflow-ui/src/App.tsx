@@ -3,6 +3,7 @@ import { BrowserRouter } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import { ErrorBoundary } from "react-error-boundary";
 import { ThemeCustomization } from "./themes";
+import { ProjectProvider } from "./contexts/ProjectContext";
 import Routes from "./routes";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -20,18 +21,20 @@ const App: FC = () => {
   return (
     <ErrorBoundary fallbackRender={ErrorFallback} onReset={() => window.location.reload()}>
       <ThemeCustomization>
-        <BrowserRouter>
-          <ToastContainer
-            newestOnTop
-            hideProgressBar
-            pauseOnFocusLoss={false}
-            autoClose={2000}
-            draggable
-            theme="colored"
-            limit={4}
-          />
-          <Routes />
-        </BrowserRouter>
+        <ProjectProvider>
+          <BrowserRouter>
+            <ToastContainer
+              newestOnTop
+              hideProgressBar
+              pauseOnFocusLoss={false}
+              autoClose={2000}
+              draggable
+              theme="colored"
+              limit={4}
+            />
+            <Routes />
+          </BrowserRouter>
+        </ProjectProvider>
       </ThemeCustomization>
     </ErrorBoundary>
   );

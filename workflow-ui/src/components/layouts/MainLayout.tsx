@@ -21,10 +21,14 @@ import {
   Typography,
   useMediaQuery,
   useTheme,
+  Select,
+  MenuItem,
+  FormControl,
 } from "@mui/material";
 import { ReactNode, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Logo from "../atoms/Logo";
+import { useProject } from "@/contexts/ProjectContext";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -47,6 +51,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const { projectId, setProjectId, projects } = useProject();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -158,6 +163,33 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             <Typography variant="h6" noWrap component="div" sx={{ ml: 1.5 }}>
               Workflow Engine
             </Typography>
+          </Box>
+          <Box sx={{ flexGrow: 1 }} />
+          <Box sx={{ mr: 2 }}>
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <Select
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                sx={{
+                  color: "inherit",
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255, 255, 255, 0.23)",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255, 255, 255, 0.5)",
+                  },
+                  "& .MuiSvgIcon-root": {
+                    color: "inherit",
+                  },
+                }}
+              >
+                {projects.map((project) => (
+                  <MenuItem key={project} value={project}>
+                    {project}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </Toolbar>
       </AppBar>

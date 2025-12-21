@@ -30,15 +30,16 @@ import {
 import { ExecutionState, ExecutionInfo } from "@/types/workflow";
 import { workflowApi } from "@/services/client/workflowApi";
 import { toast } from "react-toastify";
+import { useProject } from "@/contexts/ProjectContext";
 
 const ExecutionList = () => {
   const navigate = useNavigate();
+  const { projectId } = useProject();
   const [executions, setExecutions] = useState<ExecutionInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [projectId] = useState("default-project");
 
   const fetchExecutions = async () => {
     try {
@@ -95,7 +96,8 @@ const ExecutionList = () => {
   const filteredExecutions = executions.filter((execution) => {
     const matchesSearch =
       execution.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      execution.workflowId?.toLowerCase().includes(searchTerm.toLowerCase());
+      execution.workflowId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      execution.workflowName?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || normalizeState(execution.state) === statusFilter;
     return matchesSearch && matchesStatus;
@@ -166,7 +168,7 @@ const ExecutionList = () => {
             <TableHead>
               <TableRow>
                 <TableCell>Execution ID</TableCell>
-                <TableCell>Workflow ID</TableCell>
+                <TableCell>Workflow</TableCell>
                 <TableCell>State</TableCell>
                 <TableCell>Error</TableCell>
                 <TableCell>Actions</TableCell>
@@ -192,9 +194,14 @@ const ExecutionList = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
-                        {execution.workflowId}
+                      <Typography variant="body2" fontWeight="medium">
+                        {execution.workflowName || execution.workflowId}
                       </Typography>
+                      {execution.workflowName && (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace", display: "block" }}>
+                          {execution.workflowId.substring(0, 8)}...
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Chip
