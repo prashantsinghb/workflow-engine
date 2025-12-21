@@ -1,34 +1,37 @@
-import { ReactNode, useState } from "react";
 import {
-  Box,
+  Dashboard as DashboardIcon,
+  PlayArrow as ExecutionIcon,
+  Menu as MenuIcon,
+  Extension as ModuleIcon,
+  AccountTree as WorkflowIcon,
+} from "@mui/icons-material";
+import {
   AppBar,
-  Toolbar,
-  Typography,
+  Box,
+  Divider,
   Drawer,
+  IconButton,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  IconButton,
-  Divider,
-  useTheme,
+  Toolbar,
+  Tooltip,
+  Typography,
   useMediaQuery,
+  useTheme,
 } from "@mui/material";
-import {
-  Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  AccountTree as WorkflowIcon,
-  PlayArrow as ExecutionIcon,
-  Extension as ModuleIcon,
-} from "@mui/icons-material";
-import { useNavigate, useLocation } from "react-router-dom";
+import { ReactNode, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import Logo from "../atoms/Logo";
 
 interface MainLayoutProps {
   children: ReactNode;
 }
 
 const drawerWidth = 240;
+const drawerWidthMinified = 64;
 
 const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, path: "/" },
@@ -39,6 +42,7 @@ const menuItems = [
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -48,13 +52,29 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     setMobileOpen(!mobileOpen);
   };
 
+  const handleSidebarMouseEnter = () => {
+    if (!isMobile) {
+      setSidebarExpanded(true);
+    }
+  };
+
+  const handleSidebarMouseLeave = () => {
+    if (!isMobile) {
+      setSidebarExpanded(false);
+    }
+  };
+
+  const currentDrawerWidth = sidebarExpanded ? drawerWidth : drawerWidthMinified;
+
   const drawer = (
     <Box>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          Workflow Engine
-        </Typography>
-      </Toolbar>
+      <Box
+        sx={{
+          height: 64,
+          backgroundColor: (theme) => theme.palette.primary.main,
+          display: { xs: "none", md: "block" },
+        }}
+      />
       <Divider />
       <List>
         {menuItems.map((item) => (
@@ -65,9 +85,31 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 navigate(item.path);
                 if (isMobile) setMobileOpen(false);
               }}
+              sx={{
+                minHeight: 48,
+                justifyContent: sidebarExpanded ? "initial" : "center",
+                px: 2.5,
+              }}
             >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
+              <ListItemIcon
+                sx={{
+                  minWidth: 0,
+                  mr: sidebarExpanded ? 3 : "auto",
+                  justifyContent: "center",
+                }}
+              >
+                {sidebarExpanded ? (
+                  item.icon
+                ) : (
+                  <Tooltip title={item.text} placement="right">
+                    {item.icon}
+                  </Tooltip>
+                )}
+              </ListItemIcon>
+              <ListItemText
+                primary={item.text}
+                sx={{ opacity: sidebarExpanded ? 1 : 0 }}
+              />
             </ListItemButton>
           </ListItem>
         ))}
@@ -80,29 +122,54 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <AppBar
         position="fixed"
         sx={{
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          ml: { md: `${drawerWidth}px` },
+          width: { md: "100%" },
+          left: { md: 0 },
           zIndex: (theme) => theme.zIndex.drawer + 1,
+          transition: theme.transitions.create(["width", "left"], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
+          boxShadow: "none",
+          borderBottom: "1px solid",
+          borderColor: "divider",
         }}
       >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: "none" } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            Workflow Engine
-          </Typography>
+        <Toolbar sx={{ px: 0, minHeight: "64px !important" }}>
+          <Box sx={{ 
+            display: "flex", 
+            alignItems: "center", 
+            ml: { md: `${currentDrawerWidth}px` },
+            pl: { xs: 2, md: 2 },
+            transition: theme.transitions.create("margin-left", {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }) 
+          }}>
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2, display: { md: "none" } }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Logo size={32} />
+            <Typography variant="h6" noWrap component="div" sx={{ ml: 1.5 }}>
+              Workflow Engine
+            </Typography>
+          </Box>
         </Toolbar>
       </AppBar>
       <Box
         component="nav"
-        sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
+        sx={{
+          width: { md: currentDrawerWidth },
+          flexShrink: { md: 0 },
+          position: "relative",
+        }}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
       >
         <Drawer
           variant="temporary"
@@ -127,7 +194,16 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             display: { xs: "none", md: "block" },
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
-              width: drawerWidth,
+              width: currentDrawerWidth,
+              top: 0,
+              left: 0,
+              zIndex: (theme) => theme.zIndex.drawer,
+              transition: theme.transitions.create("width", {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+              }),
+              overflowX: "hidden",
+              borderRight: "none",
             },
           }}
           open
@@ -140,8 +216,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { md: `calc(100% - ${drawerWidth}px)` },
+          width: { md: `calc(100% - ${currentDrawerWidth}px)` },
           mt: 8,
+          transition: theme.transitions.create(["width", "margin"], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
         }}
       >
         {children}

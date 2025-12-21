@@ -47,14 +47,29 @@ func (s *PostgresStore) CreateExecution(ctx context.Context, exec *Execution) er
 }
 
 func (s *PostgresStore) GetExecution(ctx context.Context, projectID, executionID string) (*Execution, error) {
-	row := s.db.QueryRowContext(ctx, `
-		SELECT id, project_id, workflow_id,
-		       temporal_workflow_id, temporal_run_id,
-		       state, error, inputs, outputs,
-		       started_at, completed_at, created_at, updated_at
-		FROM executions
-		WHERE project_id = $1 AND id = $2
-	`, projectID, executionID)
+	// Try to parse as UUID first
+	var row *sql.Row
+	if _, err := uuid.Parse(executionID); err == nil {
+		// Valid UUID - lookup by id
+		row = s.db.QueryRowContext(ctx, `
+			SELECT id, project_id, workflow_id,
+			       temporal_workflow_id, temporal_run_id,
+			       state, error, inputs, outputs,
+			       started_at, completed_at, created_at, updated_at
+			FROM executions
+			WHERE project_id = $1 AND id = $2
+		`, projectID, executionID)
+	} else {
+		// Not a valid UUID - try lookup by temporal_workflow_id
+		row = s.db.QueryRowContext(ctx, `
+			SELECT id, project_id, workflow_id,
+			       temporal_workflow_id, temporal_run_id,
+			       state, error, inputs, outputs,
+			       started_at, completed_at, created_at, updated_at
+			FROM executions
+			WHERE project_id = $1 AND temporal_workflow_id = $2
+		`, projectID, executionID)
+	}
 
 	var exec Execution
 	var inputs, outputs []byte

@@ -1,9 +1,33 @@
+export interface ApiKeyAuth {
+  header: string;
+  value: string;
+}
+
+export interface BearerAuth {
+  token: string;
+}
+
+export interface OAuth2Auth {
+  token_url: string;
+  client_id: string;
+  client_secret?: string;
+  scope?: string;
+}
+
+export interface HttpAuth {
+  api_key?: ApiKeyAuth;
+  bearer?: BearerAuth;
+  oauth2?: OAuth2Auth;
+}
+
 export interface HttpModuleSpec {
   method: string;
   url: string;
   headers?: Record<string, string>;
   query_params?: Record<string, string>;
   body_template?: Record<string, unknown>;
+  auth?: HttpAuth;
+  output_mapping?: Record<string, unknown>;
   timeout_ms?: number;
   retry_count?: number;
 }

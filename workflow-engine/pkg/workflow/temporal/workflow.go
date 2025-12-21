@@ -8,7 +8,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-func WorkflowExecution(ctx workflow.Context, g *dag.Graph, inputs map[string]interface{}) (map[dag.NodeID]map[string]interface{}, error) {
+func WorkflowExecution(ctx workflow.Context, projectID string, g *dag.Graph, inputs map[string]interface{}) (map[dag.NodeID]map[string]interface{}, error) {
 	done := map[dag.NodeID]bool{}
 	outputs := map[dag.NodeID]map[string]interface{}{}
 
@@ -42,8 +42,9 @@ func WorkflowExecution(ctx workflow.Context, g *dag.Graph, inputs map[string]int
 			}
 			ctx1 := workflow.WithActivityOptions(ctx, ao)
 
+			// Pass projectID to the activity
 			var out map[string]interface{}
-			err := workflow.ExecuteActivity(ctx1, NodeActivity, node, inputs).Get(ctx1, &out)
+			err := workflow.ExecuteActivity(ctx1, NodeActivity, projectID, node, inputs).Get(ctx1, &out)
 			if err != nil {
 				return outputs, err
 			}

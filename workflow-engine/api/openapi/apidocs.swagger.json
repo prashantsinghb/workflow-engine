@@ -389,6 +389,25 @@
         }
       }
     },
+    "v1ApiKeyAuth": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "v1BearerAuth": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string"
+        }
+      }
+    },
     "v1ContainerRegistryModuleSpec": {
       "type": "object",
       "properties": {
@@ -449,6 +468,20 @@
         }
       }
     },
+    "v1HttpAuth": {
+      "type": "object",
+      "properties": {
+        "apiKey": {
+          "$ref": "#/definitions/v1ApiKeyAuth"
+        },
+        "bearer": {
+          "$ref": "#/definitions/v1BearerAuth"
+        },
+        "oauth2": {
+          "$ref": "#/definitions/v1OAuth2Auth"
+        }
+      }
+    },
     "v1HttpModuleSpec": {
       "type": "object",
       "properties": {
@@ -473,11 +506,17 @@
         "bodyTemplate": {
           "type": "object"
         },
-        "timeoutMs": {
+        "auth": {
+          "$ref": "#/definitions/v1HttpAuth"
+        },
+        "outputMapping": {
+          "type": "object"
+        },
+        "retryCount": {
           "type": "integer",
           "format": "int32"
         },
-        "retryCount": {
+        "timeoutMs": {
           "type": "integer",
           "format": "int32"
         }
@@ -527,6 +566,23 @@
         "outputs": {
           "type": "object",
           "additionalProperties": {}
+        }
+      }
+    },
+    "v1OAuth2Auth": {
+      "type": "object",
+      "properties": {
+        "tokenUrl": {
+          "type": "string"
+        },
+        "clientId": {
+          "type": "string"
+        },
+        "clientSecret": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
         }
       }
     },

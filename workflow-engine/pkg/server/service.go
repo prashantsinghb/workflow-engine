@@ -82,16 +82,37 @@ func (s *WorkflowServer) GetExecution(
 	req *service.GetExecutionRequest,
 ) (*service.GetExecutionResponse, error) {
 
-	_, err := s.execStore.GetExecution(ctx, req.ProjectId, req.ExecutionId)
+	exec, err := s.execStore.GetExecution(ctx, req.ProjectId, req.ExecutionId)
 	if err != nil {
 		return nil, err
 	}
 
+	// Convert state string to ExecutionState enum
+	var state service.ExecutionState
+	switch exec.State {
+	case execution.StatePending:
+		state = service.ExecutionState_PENDING
+	case execution.StateRunning:
+		state = service.ExecutionState_RUNNING
+	case execution.StateSucceeded:
+		state = service.ExecutionState_SUCCESS
+	case execution.StateFailed:
+		state = service.ExecutionState_FAILED
+	default:
+		state = service.ExecutionState_EXECUTION_STATE_UNSPECIFIED
+	}
+
+	// Convert outputs to structpb.Value map
+	outputs := make(map[string]*structpb.Value)
+	for k, v := range exec.Outputs {
+		val, _ := structpb.NewValue(v)
+		outputs[k] = val
+	}
+
 	return &service.GetExecutionResponse{
-		//ExecutionId: exec.ID,
-		//ProjectId:   exec.ProjectID,
-		//WorkflowId:  exec.WorkflowID,
-		//State:       exec.State,
+		State:  state,
+		Outputs: outputs,
+		Error:   exec.Error,
 	}, nil
 }
 
@@ -157,7 +178,7 @@ func (s *WorkflowServer) StartWorkflow(ctx context.Context, req *service.StartWo
 		TaskQueue: "workflow-task-queue",
 	}
 
-	we, err := tc.Client.ExecuteWorkflow(ctx, workflowOptions, temporal.WorkflowExecution, g, inputs)
+	we, err := tc.Client.ExecuteWorkflow(ctx, workflowOptions, temporal.WorkflowExecution, req.ProjectId, g, inputs)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +188,7 @@ func (s *WorkflowServer) StartWorkflow(ctx context.Context, req *service.StartWo
 	}
 
 	return &service.StartWorkflowResponse{
-		ExecutionId: we.GetID(),
+		ExecutionId: exec.ID,
 		State:       "RUNNING",
 	}, nil
 }

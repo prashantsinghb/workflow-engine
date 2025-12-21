@@ -2,6 +2,7 @@ package temporal
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -84,5 +85,12 @@ func createNamespaceIfNotExists(c *Client, namespace string) error {
 
 // isNamespaceAlreadyExistsError checks gRPC error type for existing namespace
 func isNamespaceAlreadyExistsError(err error) bool {
-	return err != nil && err.Error() == "Namespace already exists."
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	// Check for various forms of "namespace already exists" error
+	return errStr == "Namespace already exists." ||
+		strings.Contains(errStr, "already exists") ||
+		strings.Contains(errStr, "ALREADY_EXISTS")
 }

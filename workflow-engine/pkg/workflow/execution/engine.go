@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/prashantsinghb/workflow-engine/pkg/module/registry"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/dag"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/executor"
-	"github.com/prashantsinghb/workflow-engine/pkg/workflow/registry"
+	wfRegistry "github.com/prashantsinghb/workflow-engine/pkg/workflow/registry"
 )
 
 type State string
@@ -21,7 +22,7 @@ const (
 type Execution struct {
 	ID       string
 	Project  string
-	Workflow *registry.Workflow
+	Workflow *wfRegistry.Workflow
 	State    State
 	Outputs  map[dag.NodeID]map[string]interface{}
 	Error    string
@@ -38,10 +39,11 @@ func Start(
 	projectID string,
 	workflowID string,
 	inputs map[string]interface{},
-	executors map[string]executor.Executor,
+	moduleRegistry registry.ModuleRegistry,
 ) (string, error) {
+	ctx = executor.WithProjectID(ctx, projectID)
 
-	wf, err := registry.Get(projectID, workflowID)
+	wf, err := wfRegistry.Get(projectID, workflowID)
 	if err != nil {
 		return "", err
 	}
@@ -80,10 +82,17 @@ func Start(
 				continue
 			}
 
-			execImpl, ok := executors[node.Executor]
-			if !ok {
+			mod, err := moduleRegistry.Resolve(ctx, projectID, node.Uses)
+			if err != nil {
 				exec.State = StateFailed
-				exec.Error = fmt.Sprintf("executor not found: %s", node.Executor)
+				exec.Error = err.Error()
+				return execID, nil
+			}
+
+			execImpl, err := executor.Get(mod.Runtime)
+			if err != nil {
+				exec.State = StateFailed
+				exec.Error = err.Error()
 				return execID, nil
 			}
 

@@ -73,3 +73,4 @@ Change `VITE_PORT` in `.env` to a different port.
 ### Module not found errors
 Run `npm install` again to ensure all dependencies are installed.
 
+

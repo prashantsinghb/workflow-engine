@@ -15,6 +15,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Divider,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import {
@@ -122,6 +123,15 @@ const ModuleCreate = () => {
           httpBodyTemplate: "{}",
           httpTimeoutMs: 30000,
           httpRetryCount: 3,
+          // Auth
+          authType: "none",
+          authBearerToken: "",
+          authApiKeyHeader: "",
+          authApiKeyValue: "",
+          authOAuth2TokenUrl: "",
+          authOAuth2ClientId: "",
+          authOAuth2ClientSecret: "",
+          authOAuth2Scope: "",
           // Container spec
           containerImage: "",
           containerCommand: "",
@@ -174,12 +184,31 @@ const ModuleCreate = () => {
                 return;
               }
 
+              // Build auth object
+              let auth: { api_key?: { header: string; value: string }; bearer?: { token: string }; oauth2?: { token_url: string; client_id: string; client_secret?: string; scope?: string } } | undefined;
+              
+              if (values.authType === "bearer" && values.authBearerToken) {
+                auth = { bearer: { token: values.authBearerToken } };
+              } else if (values.authType === "api_key" && values.authApiKeyHeader && values.authApiKeyValue) {
+                auth = { api_key: { header: values.authApiKeyHeader, value: values.authApiKeyValue } };
+              } else if (values.authType === "oauth2" && values.authOAuth2TokenUrl && values.authOAuth2ClientId) {
+                auth = {
+                  oauth2: {
+                    token_url: values.authOAuth2TokenUrl,
+                    client_id: values.authOAuth2ClientId,
+                    ...(values.authOAuth2ClientSecret ? { client_secret: values.authOAuth2ClientSecret } : {}),
+                    ...(values.authOAuth2Scope ? { scope: values.authOAuth2Scope } : {}),
+                  },
+                };
+              }
+
               spec = {
                 method: values.httpMethod,
                 url: values.httpUrl,
                 headers: httpHeaders as Record<string, string>,
                 query_params: httpQueryParams as Record<string, string>,
                 body_template: httpBodyTemplate,
+                ...(auth ? { auth } : {}),
                 timeout_ms: values.httpTimeoutMs,
                 retry_count: values.httpRetryCount,
               };
@@ -438,6 +467,119 @@ const ModuleCreate = () => {
                               variant="outlined"
                             />
                           </Grid>
+                          {/* Authentication */}
+                          <Grid item xs={12}>
+                            <Divider sx={{ my: 2 }} />
+                            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                              Authentication
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <TextField
+                              fullWidth
+                              select
+                              label="Auth Type"
+                              name="authType"
+                              value={values.authType}
+                              onChange={handleChange}
+                              variant="outlined"
+                            >
+                              <MenuItem value="none">None</MenuItem>
+                              <MenuItem value="bearer">Bearer Token</MenuItem>
+                              <MenuItem value="api_key">API Key</MenuItem>
+                              <MenuItem value="oauth2">OAuth2</MenuItem>
+                            </TextField>
+                          </Grid>
+                          {values.authType === "bearer" && (
+                            <Grid item xs={12} md={8}>
+                              <TextField
+                                fullWidth
+                                label="Bearer Token"
+                                name="authBearerToken"
+                                type="password"
+                                value={values.authBearerToken}
+                                onChange={handleChange}
+                                placeholder="Enter bearer token"
+                                variant="outlined"
+                              />
+                            </Grid>
+                          )}
+                          {values.authType === "api_key" && (
+                            <>
+                              <Grid item xs={12} md={6}>
+                                <TextField
+                                  fullWidth
+                                  label="Header Name"
+                                  name="authApiKeyHeader"
+                                  value={values.authApiKeyHeader}
+                                  onChange={handleChange}
+                                  placeholder="e.g., X-API-Key"
+                                  variant="outlined"
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={6}>
+                                <TextField
+                                  fullWidth
+                                  label="API Key Value"
+                                  name="authApiKeyValue"
+                                  type="password"
+                                  value={values.authApiKeyValue}
+                                  onChange={handleChange}
+                                  placeholder="Enter API key"
+                                  variant="outlined"
+                                />
+                              </Grid>
+                            </>
+                          )}
+                          {values.authType === "oauth2" && (
+                            <>
+                              <Grid item xs={12} md={6}>
+                                <TextField
+                                  fullWidth
+                                  label="Token URL"
+                                  name="authOAuth2TokenUrl"
+                                  value={values.authOAuth2TokenUrl}
+                                  onChange={handleChange}
+                                  placeholder="https://oauth.example.com/token"
+                                  variant="outlined"
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={6}>
+                                <TextField
+                                  fullWidth
+                                  label="Client ID"
+                                  name="authOAuth2ClientId"
+                                  value={values.authOAuth2ClientId}
+                                  onChange={handleChange}
+                                  placeholder="Enter client ID"
+                                  variant="outlined"
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={6}>
+                                <TextField
+                                  fullWidth
+                                  label="Client Secret"
+                                  name="authOAuth2ClientSecret"
+                                  type="password"
+                                  value={values.authOAuth2ClientSecret}
+                                  onChange={handleChange}
+                                  placeholder="Enter client secret (optional)"
+                                  variant="outlined"
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={6}>
+                                <TextField
+                                  fullWidth
+                                  label="Scope"
+                                  name="authOAuth2Scope"
+                                  value={values.authOAuth2Scope}
+                                  onChange={handleChange}
+                                  placeholder="e.g., read write (optional)"
+                                  variant="outlined"
+                                />
+                              </Grid>
+                            </>
+                          )}
                         </>
                       )}
 

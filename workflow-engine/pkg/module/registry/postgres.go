@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -23,7 +24,14 @@ func NewPostgresRegistry(db *sql.DB) *PostgresRegistry {
 
 func (s *PostgresRegistry) Insert(ctx context.Context, m *api.Module) error {
 	inputsJSON, _ := json.Marshal(m.Inputs)
+	if len(inputsJSON) == 0 || string(inputsJSON) == "null" {
+		inputsJSON = []byte("{}")
+	}
+
 	outputsJSON, _ := json.Marshal(m.Outputs)
+	if len(outputsJSON) == 0 || string(outputsJSON) == "null" {
+		outputsJSON = []byte("{}")
+	}
 
 	// Handle empty project_id for global modules
 	projectID := m.ProjectID
@@ -107,14 +115,61 @@ func (s *PostgresRegistry) List(ctx context.Context, projectID string) ([]*api.M
 // InsertHttpSpec inserts HTTP spec for a module
 func (s *PostgresRegistry) InsertHttpSpec(ctx context.Context, moduleID string, spec *service.HttpModuleSpec) error {
 	headersJSON, _ := json.Marshal(spec.Headers)
+	if len(headersJSON) == 0 || string(headersJSON) == "null" {
+		headersJSON = []byte("{}")
+	}
+
 	queryParamsJSON, _ := json.Marshal(spec.QueryParams)
-	bodyTemplateJSON, _ := json.Marshal(spec.BodyTemplate)
+	if len(queryParamsJSON) == 0 || string(queryParamsJSON) == "null" {
+		queryParamsJSON = []byte("{}")
+	}
+
+	var bodyTemplateJSON []byte
+	if spec.BodyTemplate != nil {
+		bodyTemplateJSON, _ = json.Marshal(spec.BodyTemplate)
+		if len(bodyTemplateJSON) == 0 || string(bodyTemplateJSON) == "null" {
+			bodyTemplateJSON = []byte("{}")
+		}
+	} else {
+		bodyTemplateJSON = []byte("{}")
+	}
+
+	// Extract auth_type and auth_config from HttpAuth
+	authType := "none"
+	var authConfigJSON string
+	if spec.Auth != nil && spec.Auth.Type != nil {
+		authConfig := make(map[string]interface{})
+		switch v := spec.Auth.Type.(type) {
+		case *service.HttpAuth_Bearer:
+			if v.Bearer != nil {
+				authType = "bearer"
+				authConfig["token"] = v.Bearer.Token
+			}
+		case *service.HttpAuth_ApiKey:
+			if v.ApiKey != nil {
+				authType = "api_key"
+				authConfig["header"] = v.ApiKey.Header
+				authConfig["value"] = v.ApiKey.Value
+			}
+		case *service.HttpAuth_Oauth2:
+			if v.Oauth2 != nil {
+				authType = "oauth2"
+				authConfig["token_url"] = v.Oauth2.TokenUrl
+				authConfig["client_id"] = v.Oauth2.ClientId
+				authConfig["client_secret"] = v.Oauth2.ClientSecret
+			}
+		}
+		if len(authConfig) > 0 {
+			authConfigJSONBytes, _ := json.Marshal(authConfig)
+			authConfigJSON = string(authConfigJSONBytes)
+		}
+	}
 
 	query := `
-	INSERT INTO module_http_specs (module_id, method, url, headers, query_params, body_template, timeout_ms, retry_count)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	INSERT INTO module_http_specs (module_id, method, url, headers, query_params, body_template, timeout_ms, retry_count, auth_type, auth_config)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	ON CONFLICT (module_id) DO UPDATE 
-	SET method=$2, url=$3, headers=$4, query_params=$5, body_template=$6, timeout_ms=$7, retry_count=$8
+	SET method=$2, url=$3, headers=$4, query_params=$5, body_template=$6, timeout_ms=$7, retry_count=$8, auth_type=$9, auth_config=$10
 	`
 
 	timeoutMs := int32(30000)
@@ -126,10 +181,25 @@ func (s *PostgresRegistry) InsertHttpSpec(ctx context.Context, moduleID string, 
 		retryCount = spec.RetryCount
 	}
 
+	// Handle NULL for optional JSON fields - only set to NULL if truly empty, otherwise use "{}"
+	var bodyTemplateSQL interface{}
+	if spec.BodyTemplate == nil {
+		bodyTemplateSQL = nil
+	} else {
+		bodyTemplateSQL = string(bodyTemplateJSON)
+	}
+
+	var authConfigSQL interface{}
+	if authConfigJSON == "" {
+		authConfigSQL = nil
+	} else {
+		authConfigSQL = authConfigJSON
+	}
+
 	_, err := s.DB.ExecContext(ctx, query,
 		moduleID, spec.Method, spec.Url,
-		string(headersJSON), string(queryParamsJSON), string(bodyTemplateJSON),
-		timeoutMs, retryCount,
+		string(headersJSON), string(queryParamsJSON), bodyTemplateSQL,
+		timeoutMs, retryCount, authType, authConfigSQL,
 	)
 	return err
 }
@@ -137,15 +207,16 @@ func (s *PostgresRegistry) InsertHttpSpec(ctx context.Context, moduleID string, 
 // GetHttpSpec retrieves HTTP spec for a module
 func (s *PostgresRegistry) GetHttpSpec(ctx context.Context, moduleID string) (*service.HttpModuleSpec, error) {
 	query := `
-	SELECT method, url, headers, query_params, body_template, timeout_ms, retry_count
+	SELECT method, url, headers, query_params, body_template, timeout_ms, retry_count, auth_type, auth_config
 	FROM module_http_specs
 	WHERE module_id=$1
 	`
 
 	row := s.DB.QueryRowContext(ctx, query, moduleID)
 	var spec service.HttpModuleSpec
-	var headersJSON, queryParamsJSON, bodyTemplateJSON string
-	if err := row.Scan(&spec.Method, &spec.Url, &headersJSON, &queryParamsJSON, &bodyTemplateJSON, &spec.TimeoutMs, &spec.RetryCount); err != nil {
+	var headersJSON, queryParamsJSON, bodyTemplateJSON, authType string
+	var authConfigJSON sql.NullString
+	if err := row.Scan(&spec.Method, &spec.Url, &headersJSON, &queryParamsJSON, &bodyTemplateJSON, &spec.TimeoutMs, &spec.RetryCount, &authType, &authConfigJSON); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // No spec found
 		}
@@ -165,6 +236,50 @@ func (s *PostgresRegistry) GetHttpSpec(ctx context.Context, moduleID string) (*s
 		var bodyTemplate map[string]interface{}
 		if err := json.Unmarshal([]byte(bodyTemplateJSON), &bodyTemplate); err == nil {
 			spec.BodyTemplate, _ = structpb.NewStruct(bodyTemplate)
+		}
+	}
+
+	// Parse and set auth
+	authConfigJSONStr := ""
+	if authConfigJSON.Valid {
+		authConfigJSONStr = authConfigJSON.String
+	}
+	if authType != "" && authType != "none" && authConfigJSONStr != "" && authConfigJSONStr != "null" {
+		var authConfig map[string]interface{}
+		if err := json.Unmarshal([]byte(authConfigJSONStr), &authConfig); err == nil {
+			auth := &service.HttpAuth{}
+			switch authType {
+			case "bearer":
+				if token, ok := authConfig["token"].(string); ok {
+					auth.Type = &service.HttpAuth_Bearer{
+						Bearer: &service.BearerAuth{Token: token},
+					}
+				}
+			case "api_key":
+				if header, ok := authConfig["header"].(string); ok {
+					if value, ok := authConfig["value"].(string); ok {
+						auth.Type = &service.HttpAuth_ApiKey{
+							ApiKey: &service.ApiKeyAuth{Header: header, Value: value},
+						}
+					}
+				}
+			case "oauth2":
+				if tokenURL, ok := authConfig["token_url"].(string); ok {
+					if clientID, ok := authConfig["client_id"].(string); ok {
+						oauth2 := &service.OAuth2Auth{
+							TokenUrl: tokenURL,
+							ClientId: clientID,
+						}
+						if clientSecret, ok := authConfig["client_secret"].(string); ok {
+							oauth2.ClientSecret = clientSecret
+						}
+						auth.Type = &service.HttpAuth_Oauth2{
+							Oauth2: oauth2,
+						}
+					}
+				}
+			}
+			spec.Auth = auth
 		}
 	}
 
@@ -213,4 +328,22 @@ func (s *PostgresRegistry) GetContainerSpec(ctx context.Context, moduleID string
 	spec.Env = env
 
 	return &spec, nil
+}
+
+func (r *ModuleRegistry) Resolve(
+	ctx context.Context,
+	projectID string,
+	uses string,
+) (*api.Module, error) {
+
+	// uses format: name@version (version optional)
+	name := uses
+	version := ""
+
+	if parts := strings.Split(uses, "@"); len(parts) == 2 {
+		name = parts[0]
+		version = parts[1]
+	}
+
+	return r.GetModule(ctx, projectID, name, version)
 }

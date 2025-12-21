@@ -11,6 +11,8 @@ type Node struct {
 	Depends  []NodeID
 	Children []NodeID
 	Executor string
+	Uses     string
+	With     map[string]interface{}
 }
 
 type Graph struct {
@@ -25,9 +27,10 @@ func Build(def *api.Definition) *Graph {
 	for id, n := range def.Nodes {
 		g.Nodes[NodeID(id)] = &Node{
 			ID:       NodeID(id),
-			Executor: n.Uses,
 			Depends:  []NodeID{},
 			Children: []NodeID{},
+			Uses:     n.Uses,
+			With:     n.With,
 		}
 	}
 
