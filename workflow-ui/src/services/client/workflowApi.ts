@@ -15,6 +15,7 @@ import type {
   ListExecutionsResponse,
   GetDashboardStatsRequest,
   GetDashboardStatsResponse,
+  ExecutionTimeline,
 } from "@/types/workflow";
 
 export const workflowApi = {
@@ -81,6 +82,13 @@ export const workflowApi = {
   getDashboardStats: async (request: GetDashboardStatsRequest): Promise<GetDashboardStatsResponse> => {
     const response = await apiClient.instance.get<GetDashboardStatsResponse>(
       `/v1/projects/${request.projectId}/dashboard/stats`
+    );
+    return response.data;
+  },
+
+  getExecutionTimeline: async (projectId: string, executionId: string): Promise<ExecutionTimeline> => {
+    const response = await apiClient.instance.get<ExecutionTimeline>(
+      `/v1/projects/${projectId}/executions/${executionId}/timeline`
     );
     return response.data;
   },

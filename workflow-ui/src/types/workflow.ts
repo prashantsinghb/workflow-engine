@@ -104,3 +104,23 @@ export interface GetDashboardStatsResponse {
   successRate: number;
 }
 
+export interface ExecutionTimelineEvent {
+  timestamp: string;
+  type: string;
+  nodeId?: string;
+  executor?: string;
+  message?: string;
+  durationMs?: number;
+  payload?: Record<string, unknown>;
+}
+
+export interface ExecutionTimeline {
+  executionId: string;
+  projectId: string;
+  workflowId: string;
+  status: string;
+  startedAt?: string;
+  completedAt?: string;
+  timeline: ExecutionTimelineEvent[];
+}
+

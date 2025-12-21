@@ -15,16 +15,19 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { ExpandMore as ExpandMoreIcon } from "@mui/icons-material";
 import { workflowApi } from "@/services/client/workflowApi";
-import { ExecutionState, GetExecutionResponse } from "@/types/workflow";
+import { ExecutionState, GetExecutionResponse, ExecutionTimeline } from "@/types/workflow";
 import { toast } from "react-toastify";
 import { useProject } from "@/contexts/ProjectContext";
+import { ExecutionTimeline as ExecutionTimelineComponent } from "../components/ExecutionTimeline";
 
 const ExecutionDetails = () => {
   const { executionId } = useParams<{ executionId: string }>();
   const navigate = useNavigate();
   const { projectId } = useProject();
   const [execution, setExecution] = useState<GetExecutionResponse | null>(null);
+  const [timeline, setTimeline] = useState<ExecutionTimeline | null>(null);
   const [loading, setLoading] = useState(true);
+  const [timelineLoading, setTimelineLoading] = useState(false);
   const [polling, setPolling] = useState(false);
 
   const getStateColor = (state: ExecutionState) => {
@@ -42,11 +45,27 @@ const ExecutionDetails = () => {
     }
   };
 
+  const fetchTimeline = async () => {
+    try {
+      setTimelineLoading(true);
+      const result = await workflowApi.getExecutionTimeline(projectId, executionId!);
+      setTimeline(result);
+    } catch (error: unknown) {
+      // Timeline is optional, don't show error if it fails
+      console.error("Failed to fetch timeline:", error);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
   const fetchExecution = async () => {
     try {
       const result = await workflowApi.getExecution(projectId, executionId!);
       setExecution(result);
       setLoading(false);
+
+      // Fetch timeline
+      fetchTimeline();
 
       // Auto-poll if still running
       if (result.state === ExecutionState.RUNNING || result.state === ExecutionState.PENDING) {
@@ -55,6 +74,8 @@ const ExecutionDetails = () => {
           const interval = setInterval(async () => {
             const updated = await workflowApi.getExecution(projectId, executionId!);
             setExecution(updated);
+            // Refresh timeline on each poll
+            fetchTimeline();
             if (updated.state === ExecutionState.SUCCESS || updated.state === ExecutionState.FAILED) {
               clearInterval(interval);
               setPolling(false);
@@ -133,6 +154,18 @@ const ExecutionDetails = () => {
             </Grid>
           </Paper>
         </Grid>
+
+        {timeline && (
+          <Grid item xs={12}>
+            {timelineLoading ? (
+              <Paper sx={{ p: 3, textAlign: "center" }}>
+                <CircularProgress size={24} />
+              </Paper>
+            ) : (
+              <ExecutionTimelineComponent timeline={timeline} />
+            )}
+          </Grid>
+        )}
 
         {execution.outputs && Object.keys(execution.outputs).length > 0 && (
           <Grid item xs={12}>

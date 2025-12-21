@@ -164,6 +164,43 @@
         ]
       }
     },
+    "/v1/projects/{projectId}/executions/{executionId}/timeline": {
+      "get": {
+        "operationId": "WorkflowService_GetExecutionTimeline",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetExecutionTimelineResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "executionId",
+            "description": "UUID as string",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "WorkflowService"
+        ]
+      }
+    },
     "/v1/projects/{projectId}/modules": {
       "get": {
         "operationId": "ModuleService_ListModules",
@@ -603,6 +640,66 @@
       ],
       "default": "EXECUTION_STATE_UNSPECIFIED"
     },
+    "v1ExecutionTimeline": {
+      "type": "object",
+      "properties": {
+        "executionId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "workflowId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1ExecutionTimelineEvent"
+          }
+        }
+      }
+    },
+    "v1ExecutionTimelineEvent": {
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "type": {
+          "type": "string"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "executor": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "durationMs": {
+          "type": "string",
+          "format": "int64"
+        },
+        "payload": {
+          "type": "object"
+        }
+      }
+    },
     "v1GetDashboardStatsResponse": {
       "type": "object",
       "properties": {
@@ -637,6 +734,14 @@
         },
         "error": {
           "type": "string"
+        }
+      }
+    },
+    "v1GetExecutionTimelineResponse": {
+      "type": "object",
+      "properties": {
+        "timeline": {
+          "$ref": "#/definitions/v1ExecutionTimeline"
         }
       }
     },
