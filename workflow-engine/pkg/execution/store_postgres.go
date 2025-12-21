@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -73,6 +74,7 @@ func (s *PostgresStore) GetExecution(ctx context.Context, projectID, executionID
 
 	var exec Execution
 	var inputs, outputs []byte
+	var errorStr sql.NullString
 
 	err := row.Scan(
 		&exec.ID,
@@ -81,7 +83,7 @@ func (s *PostgresStore) GetExecution(ctx context.Context, projectID, executionID
 		&exec.TemporalWorkflowID,
 		&exec.TemporalRunID,
 		&exec.State,
-		&exec.Error,
+		&errorStr,
 		&inputs,
 		&outputs,
 		&exec.StartedAt,
@@ -90,7 +92,14 @@ func (s *PostgresStore) GetExecution(ctx context.Context, projectID, executionID
 		&exec.UpdatedAt,
 	)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("execution not found: %s", executionID)
+		}
 		return nil, err
+	}
+
+	if errorStr.Valid {
+		exec.Error = errorStr.String
 	}
 
 	_ = json.Unmarshal(inputs, &exec.Inputs)
@@ -137,6 +146,9 @@ func (s *PostgresStore) GetByIdempotencyKey(
 	)
 
 	var e Execution
+	var errorStr sql.NullString
+	var inputs, outputs []byte
+
 	if err := row.Scan(
 		&e.ID,
 		&e.ProjectID,
@@ -145,9 +157,9 @@ func (s *PostgresStore) GetByIdempotencyKey(
 		&e.TemporalWorkflowID,
 		&e.TemporalRunID,
 		&e.State,
-		&e.Error,
-		&e.Inputs,
-		&e.Outputs,
+		&errorStr,
+		&inputs,
+		&outputs,
 		&e.StartedAt,
 		&e.CompletedAt,
 		&e.CreatedAt,
@@ -155,6 +167,12 @@ func (s *PostgresStore) GetByIdempotencyKey(
 	); err != nil {
 		return nil, err
 	}
+
+	if errorStr.Valid {
+		e.Error = errorStr.String
+	}
+	_ = json.Unmarshal(inputs, &e.Inputs)
+	_ = json.Unmarshal(outputs, &e.Outputs)
 
 	return &e, nil
 }
@@ -193,9 +211,14 @@ func (s *PostgresStore) ListRunningExecutions(ctx context.Context) ([]*Execution
 	return executions, nil
 }
 
-func (s *PostgresStore) MarkCompleted(ctx context.Context, executionID string) error {
-	query := `UPDATE executions SET state='COMPLETED', completed_at=now(), updated_at=now() WHERE id=$1`
-	_, err := s.db.ExecContext(ctx, query, executionID)
+func (s *PostgresStore) MarkCompleted(ctx context.Context, executionID string, outputs map[string]interface{}) error {
+	outputsJSON, _ := json.Marshal(outputs)
+	if len(outputsJSON) == 0 || string(outputsJSON) == "null" {
+		outputsJSON = []byte("{}")
+	}
+
+	query := `UPDATE executions SET state=$1, outputs=$2, completed_at=now(), updated_at=now() WHERE id=$3`
+	_, err := s.db.ExecContext(ctx, query, StateSucceeded, string(outputsJSON), executionID)
 	return err
 }
 

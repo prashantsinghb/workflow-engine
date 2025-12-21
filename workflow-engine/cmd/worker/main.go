@@ -2,16 +2,20 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"sync"
 	"time"
 
+	_ "github.com/lib/pq"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/worker"
 
+	"github.com/prashantsinghb/workflow-engine/pkg/config"
+	"github.com/prashantsinghb/workflow-engine/pkg/execution"
 	"github.com/prashantsinghb/workflow-engine/pkg/module/registry"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/executor"
+	wfregistry "github.com/prashantsinghb/workflow-engine/pkg/workflow/registry"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/temporal"
 )
 
@@ -21,21 +25,39 @@ const (
 )
 
 func main() {
-	log.Println("Starting Temporal worker (dynamic namespaces)")
+	cfg := config.Load()
 
-	// Track which namespaces already have workers
+	db, err := sql.Open("postgres", cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// ---- STORES ----
+	execStore := execution.NewPostgresStore(db)
+	workflowStore := wfregistry.NewPostgresWorkflowStore(db)
+
+	// ---- REGISTRIES ----
+	modulePg := registry.NewPostgresRegistry(db)
+	moduleRegistry := registry.NewModuleRegistry(modulePg)
+
+	// ---- TEMPORAL GLOBALS ----
+	temporal.SetExecutionStore(execStore)
+	temporal.SetWorkflowStore(workflowStore)
+	temporal.SetModuleRegistry(moduleRegistry)
+
+	// ---- EXECUTORS ----
+	executor.Register("http", executor.NewHttpExecutor(moduleRegistry))
+	executor.Register("noop", &executor.NoopExecutor{})
+
 	seen := map[string]bool{}
 	var mu sync.Mutex
 
 	for {
-		namespaces, err := listNamespaces()
-		if err != nil {
-			log.Printf("failed to list namespaces: %v", err)
-			time.Sleep(10 * time.Second)
-			continue
-		}
-
+		namespaces, _ := listNamespaces()
 		for _, ns := range namespaces {
+			if ns == "temporal-system" {
+				continue
+			}
 			mu.Lock()
 			if seen[ns] {
 				mu.Unlock()
@@ -46,21 +68,21 @@ func main() {
 
 			go startWorker(ns)
 		}
-
 		time.Sleep(30 * time.Second)
 	}
 }
 
 func listNamespaces() ([]string, error) {
-	c, err := client.Dial(client.Options{
-		HostPort: TemporalAddr,
-	})
+	c, err := client.Dial(client.Options{HostPort: TemporalAddr})
 	if err != nil {
 		return nil, err
 	}
 	defer c.Close()
 
-	resp, err := c.WorkflowService().ListNamespaces(context.Background(), &workflowservice.ListNamespacesRequest{})
+	resp, err := c.WorkflowService().ListNamespaces(
+		context.Background(),
+		&workflowservice.ListNamespacesRequest{},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -73,35 +95,14 @@ func listNamespaces() ([]string, error) {
 }
 
 func startWorker(namespace string) {
-	log.Printf("Starting worker for namespace: %s", namespace)
-
 	c, err := client.Dial(client.Options{
 		HostPort:  TemporalAddr,
 		Namespace: namespace,
 	})
 	if err != nil {
-		log.Printf("client error for %s: %v", namespace, err)
 		return
 	}
+	defer c.Close()
 
-	// Initialize module registry (use DB if persistence is required)
-	moduleRegistry := registry.NewModuleRegistry(nil)
-	temporal.SetModuleRegistry(moduleRegistry)
-
-	// Register global executors
-	executor.Register("http", executor.NewHttpExecutor(moduleRegistry))
-	executor.Register("noop", &executor.NoopExecutor{})
-	// TODO: container executor
-	// executor.Register("container", executor.NewContainerExecutor(moduleRegistry))
-
-	w := worker.New(c, TaskQueue, worker.Options{})
-
-	// Register workflow & activities
-	w.RegisterWorkflow(temporal.WorkflowExecution)
-	w.RegisterActivity(temporal.NodeActivity)
-
-	log.Printf("Worker running for namespace: %s", namespace)
-	if err := w.Run(worker.InterruptCh()); err != nil {
-		log.Printf("worker failed for %s: %v", namespace, err)
-	}
+	_ = temporal.StartWorker(c, TaskQueue)
 }

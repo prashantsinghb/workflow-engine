@@ -8,39 +8,46 @@ import {
   Grid,
   TextField,
   CircularProgress,
+  Alert,
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import { workflowApi } from "@/services/client/workflowApi";
+import { GetWorkflowResponse } from "@/types/workflow";
 import { toast } from "react-toastify";
-
-interface Workflow {
-  workflowId: string;
-  name: string;
-  version: string;
-  yaml: string;
-}
 
 const WorkflowDetails = () => {
   const { workflowId } = useParams<{ workflowId: string }>();
   const navigate = useNavigate();
-  const [workflow, setWorkflow] = useState<Workflow | null>(null);
+  const [workflow, setWorkflow] = useState<GetWorkflowResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [projectId] = useState("default-project");
+  const [error, setError] = useState<string | null>(null);
+  const projectId = "default-project";
 
   useEffect(() => {
-    // Load workflow from localStorage
-    const workflows = JSON.parse(localStorage.getItem("workflows") || "[]");
-    const found = workflows.find((w: Workflow) => w.workflowId === workflowId);
-    if (found) {
-      setWorkflow(found);
-      setLoading(false);
-    } else {
-      // If not found in localStorage, still show the page with workflowId
-      setWorkflow({ workflowId, projectId });
-      setLoading(false);
-    }
+    const fetchWorkflow = async () => {
+      if (!workflowId) {
+        setError("Workflow ID is required");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const result = await workflowApi.getWorkflow({ projectId, workflowId });
+        setWorkflow(result);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load workflow";
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWorkflow();
   }, [workflowId, projectId]);
 
   const executionSchema = Yup.object({
@@ -64,6 +71,17 @@ const WorkflowDetails = () => {
     );
   }
 
+  if (error || !workflow) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Alert severity="error">{error || "Workflow not found"}</Alert>
+        <Button variant="outlined" onClick={() => navigate("/workflows")} sx={{ mt: 2 }}>
+          Back to List
+        </Button>
+      </Container>
+    );
+  }
+
   return (
     <Box>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
@@ -83,27 +101,27 @@ const WorkflowDetails = () => {
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Workflow Name
                 </Typography>
-                <Typography variant="h6">{workflow?.name || "N/A"}</Typography>
+                <Typography variant="h6">{workflow.workflow.name}</Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Version
                 </Typography>
-                <Typography variant="body1">{workflow?.version || "N/A"}</Typography>
+                <Typography variant="body1">{workflow.workflow.version}</Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Workflow ID
                 </Typography>
                 <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
-                  {workflowId}
+                  {workflow.workflow.id}
                 </Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Project ID
                 </Typography>
-                <Typography variant="body1">{projectId}</Typography>
+                <Typography variant="body1">{workflow.workflow.projectId}</Typography>
               </Grid>
             </Grid>
           </Paper>

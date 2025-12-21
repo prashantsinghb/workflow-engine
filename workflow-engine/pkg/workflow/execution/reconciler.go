@@ -23,7 +23,7 @@ func Reconcile(ctx context.Context, store execution.Store, temporal client.Clien
 		if err != nil {
 			store.MarkFailed(ctx, e.ID, err.Error())
 		} else if status == "COMPLETED" {
-			store.MarkCompleted(ctx, e.ID)
+			store.MarkCompleted(ctx, e.ID, nil)
 		}
 	}
 }

@@ -23,6 +23,31 @@ export interface RegisterWorkflowResponse {
   workflowId: string;
 }
 
+export interface ListWorkflowsRequest {
+  projectId: string;
+}
+
+export interface WorkflowInfo {
+  id: string;
+  name: string;
+  version: string;
+  projectId: string;
+}
+
+export interface ListWorkflowsResponse {
+  workflows: WorkflowInfo[];
+}
+
+export interface GetWorkflowRequest {
+  projectId: string;
+  workflowId: string;
+}
+
+export interface GetWorkflowResponse {
+  workflow: WorkflowInfo;
+  yaml: string;
+}
+
 export interface StartWorkflowRequest {
   projectId: string;
   workflowId: string;

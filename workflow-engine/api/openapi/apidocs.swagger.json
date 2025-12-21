@@ -208,6 +208,35 @@
       }
     },
     "/v1/projects/{projectId}/workflows": {
+      "get": {
+        "summary": "List workflows in a project",
+        "operationId": "WorkflowService_ListWorkflows",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListWorkflowsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "WorkflowService"
+        ]
+      },
       "post": {
         "summary": "Register a workflow under a project",
         "operationId": "WorkflowService_RegisterWorkflow",
@@ -239,6 +268,43 @@
             "schema": {
               "$ref": "#/definitions/WorkflowServiceRegisterWorkflowBody"
             }
+          }
+        ],
+        "tags": [
+          "WorkflowService"
+        ]
+      }
+    },
+    "/v1/projects/{projectId}/workflows/{workflowId}": {
+      "get": {
+        "summary": "Get workflow details",
+        "operationId": "WorkflowService_GetWorkflow",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetWorkflowResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "type": "string"
           }
         ],
         "tags": [
@@ -468,6 +534,17 @@
         }
       }
     },
+    "v1GetWorkflowResponse": {
+      "type": "object",
+      "properties": {
+        "workflow": {
+          "$ref": "#/definitions/v1WorkflowInfo"
+        },
+        "yaml": {
+          "type": "string"
+        }
+      }
+    },
     "v1HttpAuth": {
       "type": "object",
       "properties": {
@@ -530,6 +607,18 @@
           "items": {
             "type": "object",
             "$ref": "#/definitions/v1Module"
+          }
+        }
+      }
+    },
+    "v1ListWorkflowsResponse": {
+      "type": "object",
+      "properties": {
+        "workflows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1WorkflowInfo"
           }
         }
       }
@@ -646,6 +735,23 @@
         "version",
         "yaml"
       ]
+    },
+    "v1WorkflowInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        }
+      }
     }
   }
 }

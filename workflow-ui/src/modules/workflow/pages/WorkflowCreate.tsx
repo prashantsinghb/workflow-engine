@@ -106,29 +106,17 @@ const WorkflowCreate = () => {
             }
 
             // Then register
-                  const result = await workflowApi.registerWorkflow({
-                    projectId: values.projectId,
-                    workflow: {
-                      name: values.name,
-                      version: values.version,
-                      yaml: values.yaml,
-                    },
-                  });
+            const result = await workflowApi.registerWorkflow({
+              projectId: values.projectId,
+              workflow: {
+                name: values.name,
+                version: values.version,
+                yaml: values.yaml,
+              },
+            });
 
-                  // Store workflow in localStorage for demo purposes
-                  const workflows = JSON.parse(localStorage.getItem("workflows") || "[]");
-                  workflows.push({
-                    workflowId: result.workflowId,
-                    name: values.name,
-                    version: values.version,
-                    projectId: values.projectId,
-                    yaml: values.yaml,
-                    createdAt: new Date().toISOString(),
-                  });
-                  localStorage.setItem("workflows", JSON.stringify(workflows));
-
-                  toast.success("Workflow created successfully!");
-                  navigate(`/workflows/${result.workflowId}`);
+            toast.success("Workflow created successfully!");
+            navigate(`/workflows/${result.workflowId}`);
           } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : "Failed to create workflow";
             toast.error(errorMessage);

@@ -198,3 +198,10 @@ func (s *ModuleServer) ListModules(
 
 	return &service.ListModulesResponse{Modules: serviceModules}, nil
 }
+
+func structpbToInterface(v *structpb.Value) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	return v.AsInterface(), nil
+}

@@ -10,6 +10,8 @@ func StartWorker(c client.Client, taskQueue string) error {
 
 	w.RegisterWorkflow(WorkflowExecution)
 	w.RegisterActivity(NodeActivity)
+	w.RegisterActivity(MarkExecutionSucceeded)
+	w.RegisterActivity(MarkExecutionFailed)
 
 	return w.Run(worker.InterruptCh())
 }

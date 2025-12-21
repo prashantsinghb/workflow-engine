@@ -16,6 +16,8 @@ import {
   InputAdornment,
   Card,
   CardContent,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import {
@@ -24,39 +26,61 @@ import {
   Search as SearchIcon,
   PlayArrow as PlayIcon,
 } from "@mui/icons-material";
+import { workflowApi } from "@/services/client/workflowApi";
+import { WorkflowInfo } from "@/types/workflow";
+import { toast } from "react-toastify";
 
-interface Workflow {
-  workflowId: string;
-  name: string;
-  version: string;
-}
-
-// This is a placeholder - in a real app, you'd have an API to list workflows
-// For now, we'll show a message to create workflows
 const WorkflowList = () => {
   const navigate = useNavigate();
-  const [workflows] = useState<Workflow[]>([]);
+  const [workflows, setWorkflows] = useState<WorkflowInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const projectId = "default-project";
 
   useEffect(() => {
-    // TODO: Implement API call to list workflows
-    // For now, workflows are stored locally or fetched from backend
-    // Load from localStorage as a simple persistence mechanism
-    const stored = localStorage.getItem("workflows");
-    if (stored) {
+    const fetchWorkflows = async () => {
       try {
-        setWorkflows(JSON.parse(stored));
-      } catch (e) {
-        console.error("Failed to load workflows from storage", e);
+        setLoading(true);
+        setError(null);
+        const result = await workflowApi.listWorkflows({ projectId });
+        setWorkflows(result.workflows || []);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load workflows";
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
       }
-    }
+    };
+
+    fetchWorkflows();
   }, []);
 
   const filteredWorkflows = workflows.filter(
     (workflow) =>
       workflow.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      workflow.workflowId?.toLowerCase().includes(searchTerm.toLowerCase())
+      workflow.id?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <Box sx={{ textAlign: "center", py: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box>
+        <Alert severity="error">{error}</Alert>
+        <Button variant="contained" onClick={() => window.location.reload()} sx={{ mt: 2 }}>
+          Retry
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -133,7 +157,7 @@ const WorkflowList = () => {
                 </TableRow>
               ) : (
                 filteredWorkflows.map((workflow) => (
-                  <TableRow key={workflow.workflowId} hover>
+                  <TableRow key={workflow.id} hover>
                     <TableCell>
                       <Typography variant="body1" fontWeight="medium">
                         {workflow.name}
@@ -144,7 +168,7 @@ const WorkflowList = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
-                        {workflow.workflowId?.substring(0, 8)}...
+                        {workflow.id?.substring(0, 8)}...
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -154,7 +178,7 @@ const WorkflowList = () => {
                       <Box sx={{ display: "flex", gap: 1 }}>
                         <IconButton
                           size="small"
-                          onClick={() => navigate(`/workflows/${workflow.workflowId}`)}
+                          onClick={() => navigate(`/workflows/${workflow.id}`)}
                           title="View Details"
                         >
                           <ViewIcon />
@@ -162,7 +186,7 @@ const WorkflowList = () => {
                         <IconButton
                           size="small"
                           onClick={() => {
-                            navigate(`/workflows/${workflow.workflowId}`);
+                            navigate(`/workflows/${workflow.id}`);
                             // Scroll to execution form
                           }}
                           title="Execute"

@@ -40,10 +40,12 @@ func Start(
 	workflowID string,
 	inputs map[string]interface{},
 	moduleRegistry registry.ModuleRegistry,
+	workflowStore wfRegistry.WorkflowStore,
 ) (string, error) {
+
 	ctx = executor.WithProjectID(ctx, projectID)
 
-	wf, err := wfRegistry.Get(projectID, workflowID)
+	wf, err := workflowStore.Get(ctx, projectID, workflowID)
 	if err != nil {
 		return "", err
 	}

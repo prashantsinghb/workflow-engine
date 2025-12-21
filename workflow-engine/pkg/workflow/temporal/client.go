@@ -12,9 +12,17 @@ import (
 )
 
 var (
-	mu      sync.Mutex
-	clients = map[string]*Client{} // projectID → Client
+	mu          sync.Mutex
+	clients     = map[string]*Client{} // projectID → Client
+	temporalAddr = "localhost:7233"     // Default Temporal server address
 )
+
+// SetTemporalAddr sets the Temporal server address (call before first GetClientForProject)
+func SetTemporalAddr(addr string) {
+	mu.Lock()
+	defer mu.Unlock()
+	temporalAddr = addr
+}
 
 type Client struct {
 	Client client.Client
@@ -30,6 +38,7 @@ func GetClientForProject(projectID string) (*Client, error) {
 
 	// Connect to Temporal service
 	cli, err := client.Dial(client.Options{
+		HostPort:  temporalAddr,
 		Namespace: projectID,
 	})
 	if err != nil {

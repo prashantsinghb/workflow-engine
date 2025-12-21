@@ -4,6 +4,10 @@ import type {
   ValidateWorkflowResponse,
   RegisterWorkflowRequest,
   RegisterWorkflowResponse,
+  ListWorkflowsRequest,
+  ListWorkflowsResponse,
+  GetWorkflowRequest,
+  GetWorkflowResponse,
   StartWorkflowRequest,
   StartWorkflowResponse,
   GetExecutionResponse,
@@ -22,6 +26,20 @@ export const workflowApi = {
     const response = await apiClient.instance.post<RegisterWorkflowResponse>(
       `/v1/projects/${request.projectId}/workflows`,
       { workflow: request.workflow }
+    );
+    return response.data;
+  },
+
+  listWorkflows: async (request: ListWorkflowsRequest): Promise<ListWorkflowsResponse> => {
+    const response = await apiClient.instance.get<ListWorkflowsResponse>(
+      `/v1/projects/${request.projectId}/workflows`
+    );
+    return response.data;
+  },
+
+  getWorkflow: async (request: GetWorkflowRequest): Promise<GetWorkflowResponse> => {
+    const response = await apiClient.instance.get<GetWorkflowResponse>(
+      `/v1/projects/${request.projectId}/workflows/${request.workflowId}`
     );
     return response.data;
   },
