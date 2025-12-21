@@ -93,3 +93,19 @@ func (s *PostgresWorkflowStore) List(
 	}
 	return out, nil
 }
+
+func (s *PostgresWorkflowStore) Count(
+	ctx context.Context,
+	projectID string,
+) (int64, error) {
+	var count int64
+	err := s.db.QueryRowContext(
+		ctx,
+		`SELECT COUNT(*) FROM workflows WHERE project_id=$1`,
+		projectID,
+	).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}

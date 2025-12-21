@@ -284,3 +284,28 @@ func (s *PostgresStore) ListExecutions(ctx context.Context, projectID, workflowI
 
 	return result, nil
 }
+
+func (s *PostgresStore) GetStats(ctx context.Context, projectID string) (*ExecutionStats, error) {
+	query := `
+		SELECT 
+			COUNT(*) as total_executions,
+			COUNT(*) FILTER (WHERE state = 'RUNNING') as running_executions,
+			COUNT(*) FILTER (WHERE state = 'SUCCEEDED' OR state = 'COMPLETED') as success_count,
+			COUNT(*) FILTER (WHERE state = 'FAILED') as failed_count
+		FROM executions
+		WHERE project_id = $1
+	`
+
+	var stats ExecutionStats
+	err := s.db.QueryRowContext(ctx, query, projectID).Scan(
+		&stats.TotalExecutions,
+		&stats.RunningExecutions,
+		&stats.SuccessCount,
+		&stats.FailedCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
+}

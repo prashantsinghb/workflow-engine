@@ -92,3 +92,14 @@ export interface ListExecutionsResponse {
   executions: ExecutionInfo[];
 }
 
+export interface GetDashboardStatsRequest {
+  projectId: string;
+}
+
+export interface GetDashboardStatsResponse {
+  totalWorkflows: number;
+  totalExecutions: number;
+  runningExecutions: number;
+  successRate: number;
+}
+

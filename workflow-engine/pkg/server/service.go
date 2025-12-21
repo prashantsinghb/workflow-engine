@@ -329,3 +329,37 @@ func (s *WorkflowServer) ListExecutions(
 
 	return res, nil
 }
+
+/* ---------------------- DASHBOARD STATS ---------------------- */
+
+func (s *WorkflowServer) GetDashboardStats(
+	ctx context.Context,
+	req *service.GetDashboardStatsRequest,
+) (*service.GetDashboardStatsResponse, error) {
+
+	// Get workflow count
+	totalWorkflows, err := s.wfStore.Count(ctx, req.ProjectId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count workflows: %w", err)
+	}
+
+	// Get execution stats
+	execStats, err := s.execStore.GetStats(ctx, req.ProjectId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get execution stats: %w", err)
+	}
+
+	// Calculate success rate (only for completed executions)
+	var successRate float64
+	completedCount := execStats.SuccessCount + execStats.FailedCount
+	if completedCount > 0 {
+		successRate = (float64(execStats.SuccessCount) / float64(completedCount)) * 100.0
+	}
+
+	return &service.GetDashboardStatsResponse{
+		TotalWorkflows:   totalWorkflows,
+		TotalExecutions:  execStats.TotalExecutions,
+		RunningExecutions: execStats.RunningExecutions,
+		SuccessRate:      successRate,
+	}, nil
+}

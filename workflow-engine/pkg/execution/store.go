@@ -12,4 +12,12 @@ type Store interface {
 	MarkFailed(ctx context.Context, executionID string, errMsg string) error
 	UpdateNodeOutputs(ctx context.Context, nodeID string, outputs map[string]interface{}) error
 	ListExecutions(ctx context.Context, projectID, workflowID string) ([]*Execution, error)
+	GetStats(ctx context.Context, projectID string) (*ExecutionStats, error)
+}
+
+type ExecutionStats struct {
+	TotalExecutions  int64
+	RunningExecutions int64
+	SuccessCount     int64
+	FailedCount      int64
 }

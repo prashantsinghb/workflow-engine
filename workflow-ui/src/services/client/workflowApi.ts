@@ -13,6 +13,8 @@ import type {
   GetExecutionResponse,
   ListExecutionsRequest,
   ListExecutionsResponse,
+  GetDashboardStatsRequest,
+  GetDashboardStatsResponse,
 } from "@/types/workflow";
 
 export const workflowApi = {
@@ -73,6 +75,13 @@ export const workflowApi = {
     const queryString = params.toString();
     const url = `/v1/projects/${request.projectId}/executions${queryString ? `?${queryString}` : ""}`;
     const response = await apiClient.instance.get<ListExecutionsResponse>(url);
+    return response.data;
+  },
+
+  getDashboardStats: async (request: GetDashboardStatsRequest): Promise<GetDashboardStatsResponse> => {
+    const response = await apiClient.instance.get<GetDashboardStatsResponse>(
+      `/v1/projects/${request.projectId}/dashboard/stats`
+    );
     return response.data;
   },
 };

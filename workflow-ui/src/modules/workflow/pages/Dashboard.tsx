@@ -7,6 +7,7 @@ import {
   Card,
   CardContent,
   Button,
+  CircularProgress,
 } from "@mui/material";
 import {
   AccountTree as WorkflowIcon,
@@ -14,20 +15,44 @@ import {
   CheckCircle as SuccessIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import { workflowApi } from "@/services/client/workflowApi";
+import { toast } from "react-toastify";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [stats] = useState({
+  const [stats, setStats] = useState({
     totalWorkflows: 0,
     totalExecutions: 0,
     runningExecutions: 0,
     successRate: 0,
   });
+  const [loading, setLoading] = useState(true);
+  const [projectId] = useState("default-project");
 
   useEffect(() => {
-    // TODO: Fetch real stats from API
-    // For now, using placeholder data
-  }, []);
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const response = await workflowApi.getDashboardStats({ projectId });
+        setStats({
+          totalWorkflows: response.totalWorkflows || 0,
+          totalExecutions: response.totalExecutions || 0,
+          runningExecutions: response.runningExecutions || 0,
+          successRate: response.successRate || 0,
+        });
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to fetch dashboard stats";
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+    // Refresh stats every 30 seconds
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
+  }, [projectId]);
 
   const statCards = [
     {
@@ -53,11 +78,19 @@ const Dashboard = () => {
     },
     {
       title: "Success Rate",
-      value: `${stats.successRate}%`,
+      value: `${stats.successRate.toFixed(1)}%`,
       icon: <SuccessIcon sx={{ fontSize: 40 }} />,
       color: "#2e7d32",
     },
   ];
+
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box>
