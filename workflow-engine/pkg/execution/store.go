@@ -1,23 +1,98 @@
 package execution
 
-import "context"
+import (
+	"context"
+
+	"github.com/google/uuid"
+)
 
 type Store interface {
-	CreateExecution(ctx context.Context, exec *Execution) error
-	GetExecution(ctx context.Context, projectID, executionID string) (*Execution, error)
-	GetByIdempotencyKey(ctx context.Context, projectID string, workflowID string, clientRequestID string) (*Execution, error)
-	MarkRunning(ctx context.Context, executionID, runID string) error
-	ListRunningExecutions(ctx context.Context) ([]*Execution, error)
-	MarkCompleted(ctx context.Context, executionID string, outputs map[string]interface{}) error
-	MarkFailed(ctx context.Context, executionID string, errMsg string) error
-	UpdateNodeOutputs(ctx context.Context, nodeID string, outputs map[string]interface{}) error
-	ListExecutions(ctx context.Context, projectID, workflowID string) ([]*Execution, error)
-	GetStats(ctx context.Context, projectID string) (*ExecutionStats, error)
+	Executions() ExecutionStore
+	Nodes() NodeStore
+	Events() EventStore
 }
 
-type ExecutionStats struct {
-	TotalExecutions  int64
-	RunningExecutions int64
-	SuccessCount     int64
-	FailedCount      int64
+type ExecutionStore interface {
+	Create(ctx context.Context, exec *Execution) error
+
+	Get(
+		ctx context.Context,
+		projectID string,
+		executionID uuid.UUID,
+	) (*Execution, error)
+
+	GetByIdempotencyKey(
+		ctx context.Context,
+		projectID, workflowID, clientRequestID string,
+	) (*Execution, error)
+
+	MarkRunning(
+		ctx context.Context,
+		executionID uuid.UUID,
+		runID string,
+	) error
+
+	MarkCompleted(
+		ctx context.Context,
+		executionID uuid.UUID,
+		outputs map[string]any,
+	) error
+
+	MarkFailed(
+		ctx context.Context,
+		executionID uuid.UUID,
+		err map[string]any,
+	) error
+
+	List(
+		ctx context.Context,
+		projectID, workflowID string,
+	) ([]*Execution, error)
+
+	ListRunning(ctx context.Context) ([]*Execution, error)
+
+	GetStats(
+		ctx context.Context,
+		projectID string,
+	) (*ExecutionStats, error)
+}
+
+type NodeStore interface {
+	Upsert(ctx context.Context, node *ExecutionNode) error
+
+	MarkRunning(
+		ctx context.Context,
+		executionID uuid.UUID,
+		nodeID string,
+	) error
+
+	MarkSucceeded(
+		ctx context.Context,
+		executionID uuid.UUID,
+		nodeID string,
+		output map[string]any,
+	) error
+
+	MarkFailed(
+		ctx context.Context,
+		executionID uuid.UUID,
+		nodeID string,
+		err map[string]any,
+	) error
+
+	IncrementAttempt(
+		ctx context.Context,
+		executionID uuid.UUID,
+		nodeID string,
+	) error
+
+	ListByExecution(
+		ctx context.Context,
+		executionID uuid.UUID,
+	) ([]ExecutionNode, error)
+}
+
+type EventStore interface {
+	Append(ctx context.Context, event *ExecutionEvent) error
+	List(ctx context.Context, executionID uuid.UUID) ([]ExecutionEvent, error)
 }

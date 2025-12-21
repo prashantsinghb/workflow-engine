@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -21,14 +22,14 @@ import (
 type WorkflowServer struct {
 	service.UnimplementedWorkflowServiceServer
 
-	execStore execution.Store
+	execStore execution.ExecutionStore
 	wfStore   wfregistry.WorkflowStore
 	modules   *moduleregistry.ModuleRegistry
 	validator *validation.WorkflowValidator
 }
 
 func NewWorkflowService(
-	execStore execution.Store,
+	execStore execution.ExecutionStore,
 	wfStore wfregistry.WorkflowStore,
 	modules *moduleregistry.ModuleRegistry,
 ) *WorkflowServer {
@@ -188,16 +189,16 @@ func (s *WorkflowServer) StartWorkflow(
 	}
 
 	exec := &execution.Execution{
-		ID:                 uuid.NewString(),
+		ID:                 uuid.New(),
 		ProjectID:          req.ProjectId,
 		WorkflowID:         req.WorkflowId,
 		ClientRequestID:    req.ClientRequestId,
 		TemporalWorkflowID: temporalWorkflowID,
-		State:              execution.StatePending,
+		Status:             execution.ExecutionPending,
 		Inputs:             inputs,
 	}
 
-	err := s.execStore.CreateExecution(ctx, exec)
+	err := s.execStore.Create(ctx, exec)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
 			existing, err := s.execStore.GetByIdempotencyKey(
@@ -210,8 +211,8 @@ func (s *WorkflowServer) StartWorkflow(
 				return nil, err
 			}
 			return &service.StartWorkflowResponse{
-				ExecutionId: existing.ID,
-				State:       string(existing.State),
+				ExecutionId: existing.ID.String(),
+				State:       string(existing.Status),
 			}, nil
 		}
 		return nil, err
@@ -221,11 +222,11 @@ func (s *WorkflowServer) StartWorkflow(
 	// Use a goroutine to start the workflow in the background
 	go func() {
 		bgCtx := context.Background()
-		
+
 		tc, err := temporal.GetClientForProject(req.ProjectId)
 		if err != nil {
 			// Mark execution as failed if we can't connect to Temporal
-			_ = s.execStore.MarkFailed(bgCtx, exec.ID, fmt.Sprintf("Failed to connect to Temporal: %v", err))
+			_ = s.execStore.MarkFailed(bgCtx, exec.ID, map[string]any{"message": fmt.Sprintf("Failed to connect to Temporal: %v", err)})
 			return
 		}
 
@@ -238,14 +239,14 @@ func (s *WorkflowServer) StartWorkflow(
 			bgCtx,
 			opts,
 			temporal.WorkflowExecution,
-			exec.ID,
+			exec.ID.String(),
 			req.ProjectId,
 			req.WorkflowId,
 			inputs,
 		)
 		if err != nil {
 			// Mark execution as failed if workflow start fails
-			_ = s.execStore.MarkFailed(bgCtx, exec.ID, fmt.Sprintf("Failed to start workflow: %v", err))
+			_ = s.execStore.MarkFailed(bgCtx, exec.ID, map[string]any{"message": fmt.Sprintf("Failed to start workflow: %v", err)})
 			return
 		}
 
@@ -256,8 +257,8 @@ func (s *WorkflowServer) StartWorkflow(
 	// Return immediately with PENDING state
 	// The workflow will be started asynchronously and state will update to RUNNING
 	return &service.StartWorkflowResponse{
-		ExecutionId: exec.ID,
-		State:       string(execution.StatePending),
+		ExecutionId: exec.ID.String(),
+		State:       string(execution.ExecutionPending),
 	}, nil
 }
 
@@ -268,20 +269,25 @@ func (s *WorkflowServer) GetExecution(
 	req *service.GetExecutionRequest,
 ) (*service.GetExecutionResponse, error) {
 
-	exec, err := s.execStore.GetExecution(ctx, req.ProjectId, req.ExecutionId)
+	executionID, err := uuid.Parse(req.ExecutionId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid execution ID: %w", err)
+	}
+
+	exec, err := s.execStore.Get(ctx, req.ProjectId, executionID)
 	if err != nil {
 		return nil, err
 	}
 
 	var state service.ExecutionState
-	switch exec.State {
-	case execution.StatePending:
+	switch exec.Status {
+	case execution.ExecutionPending:
 		state = service.ExecutionState_PENDING
-	case execution.StateRunning:
+	case execution.ExecutionRunning:
 		state = service.ExecutionState_RUNNING
-	case execution.StateSucceeded:
+	case execution.ExecutionSucceeded:
 		state = service.ExecutionState_SUCCESS
-	case execution.StateFailed:
+	case execution.ExecutionFailed:
 		state = service.ExecutionState_FAILED
 	default:
 		state = service.ExecutionState_EXECUTION_STATE_UNSPECIFIED
@@ -293,10 +299,22 @@ func (s *WorkflowServer) GetExecution(
 		outputs[k] = val
 	}
 
+	var errorStr string
+	if exec.Error != nil {
+		// Try to extract message if present, otherwise marshal the whole map
+		if msg, ok := exec.Error["message"].(string); ok {
+			errorStr = msg
+		} else {
+			// Fallback to JSON marshaling
+			errJSON, _ := json.Marshal(exec.Error)
+			errorStr = string(errJSON)
+		}
+	}
+
 	return &service.GetExecutionResponse{
 		State:   state,
 		Outputs: outputs,
-		Error:   exec.Error,
+		Error:   errorStr,
 	}, nil
 }
 
@@ -307,7 +325,7 @@ func (s *WorkflowServer) ListExecutions(
 	req *service.ListExecutionsRequest,
 ) (*service.ListExecutionsResponse, error) {
 
-	execs, err := s.execStore.ListExecutions(ctx, req.ProjectId, req.WorkflowId)
+	execs, err := s.execStore.List(ctx, req.ProjectId, req.WorkflowId)
 	if err != nil {
 		return nil, err
 	}
@@ -338,14 +356,27 @@ func (s *WorkflowServer) ListExecutions(
 		if workflowName == "" {
 			workflowName = e.WorkflowID // Fallback to ID if name not found
 		}
+
+		var errorStr string
+		if e.Error != nil {
+			// Try to extract message if present, otherwise marshal the whole map
+			if msg, ok := e.Error["message"].(string); ok {
+				errorStr = msg
+			} else {
+				// Fallback to JSON marshaling
+				errJSON, _ := json.Marshal(e.Error)
+				errorStr = string(errJSON)
+			}
+		}
+
 		res.Executions[i] = &service.ExecutionInfo{
-			Id:           e.ID,
-			WorkflowId:   e.WorkflowID,
-			WorkflowName: workflowName,
-			ProjectId:    e.ProjectID,
+			Id:              e.ID.String(),
+			WorkflowId:      e.WorkflowID,
+			WorkflowName:    workflowName,
+			ProjectId:       e.ProjectID,
 			ClientRequestId: e.ClientRequestID,
-			State:        string(e.State),
-			Error:        e.Error,
+			State:           string(e.Status),
+			Error:           errorStr,
 		}
 	}
 
@@ -379,9 +410,9 @@ func (s *WorkflowServer) GetDashboardStats(
 	}
 
 	return &service.GetDashboardStatsResponse{
-		TotalWorkflows:   totalWorkflows,
-		TotalExecutions:  execStats.TotalExecutions,
+		TotalWorkflows:    totalWorkflows,
+		TotalExecutions:   execStats.TotalExecutions,
 		RunningExecutions: execStats.RunningExecutions,
-		SuccessRate:      successRate,
+		SuccessRate:       successRate,
 	}, nil
 }

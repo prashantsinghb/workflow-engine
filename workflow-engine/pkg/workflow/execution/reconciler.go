@@ -9,8 +9,8 @@ import (
 	"go.temporal.io/sdk/client"
 )
 
-func Reconcile(ctx context.Context, store execution.Store, temporal client.Client) {
-	execs, err := store.ListRunningExecutions(ctx)
+func Reconcile(ctx context.Context, store execution.ExecutionStore, temporal client.Client) {
+	execs, err := store.ListRunning(ctx)
 	if err != nil {
 		log.Println("Reconcile: failed to list running executions:", err)
 		return
@@ -21,7 +21,7 @@ func Reconcile(ctx context.Context, store execution.Store, temporal client.Clien
 		var status string
 		err := we.Get(ctx, &status)
 		if err != nil {
-			store.MarkFailed(ctx, e.ID, err.Error())
+			store.MarkFailed(ctx, e.ID, map[string]any{"message": err.Error()})
 		} else if status == "COMPLETED" {
 			store.MarkCompleted(ctx, e.ID, nil)
 		}

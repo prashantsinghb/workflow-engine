@@ -139,12 +139,6 @@ If integrating with the main workflow-manager Helm chart:
    ```go
    package resource
    
-   import (
-       "go.mongodb.org/mongo-driver/bson"
-       configdb "github.com/coredgeio/compass/pkg/infra/configdb"
-       "github.com/coredgeio/workflow-manager/pkg/runtime"
-   )
-   
    type ResourceKey struct {
        Domain  string `bson:"domain,omitempty"`
        Project string `bson:"project,omitempty"`

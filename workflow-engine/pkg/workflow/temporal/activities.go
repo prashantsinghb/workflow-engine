@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/google/uuid"
 	"github.com/prashantsinghb/workflow-engine/pkg/execution"
 	"github.com/prashantsinghb/workflow-engine/pkg/module/registry"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/dag"
@@ -15,7 +16,7 @@ import (
 // globals injected by worker
 var (
 	ModuleRegistry *registry.ModuleRegistry
-	ExecutionStore execution.Store
+	ExecutionStore execution.ExecutionStore
 	WorkflowStore  wfregistry.WorkflowStore
 )
 
@@ -23,7 +24,7 @@ func SetModuleRegistry(m *registry.ModuleRegistry) {
 	ModuleRegistry = m
 }
 
-func SetExecutionStore(s execution.Store) {
+func SetExecutionStore(s execution.ExecutionStore) {
 	ExecutionStore = s
 }
 
@@ -171,7 +172,11 @@ func MarkExecutionSucceeded(
 	if ExecutionStore == nil {
 		return fmt.Errorf("execution store not set")
 	}
-	return ExecutionStore.MarkCompleted(ctx, executionID, outputs)
+	id, err := uuid.Parse(executionID)
+	if err != nil {
+		return fmt.Errorf("invalid execution ID: %w", err)
+	}
+	return ExecutionStore.MarkCompleted(ctx, id, outputs)
 }
 
 func MarkExecutionFailed(
@@ -182,7 +187,11 @@ func MarkExecutionFailed(
 	if ExecutionStore == nil {
 		return fmt.Errorf("execution store not set")
 	}
-	return ExecutionStore.MarkFailed(ctx, executionID, errMsg)
+	id, err := uuid.Parse(executionID)
+	if err != nil {
+		return fmt.Errorf("invalid execution ID: %w", err)
+	}
+	return ExecutionStore.MarkFailed(ctx, id, map[string]any{"message": errMsg})
 }
 
 // --- helper to check if node dependencies are satisfied ---

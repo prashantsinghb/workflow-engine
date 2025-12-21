@@ -12,7 +12,7 @@ import (
 	"go.temporal.io/sdk/client"
 
 	"github.com/prashantsinghb/workflow-engine/pkg/config"
-	"github.com/prashantsinghb/workflow-engine/pkg/execution"
+	"github.com/prashantsinghb/workflow-engine/pkg/execution/postgres"
 	"github.com/prashantsinghb/workflow-engine/pkg/module/registry"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/executor"
 	wfregistry "github.com/prashantsinghb/workflow-engine/pkg/workflow/registry"
@@ -33,7 +33,10 @@ func main() {
 	}
 
 	// ---- STORES ----
-	execStore := execution.NewPostgresStore(db)
+	store := postgres.New(db)
+	executionStore := store.Executions()
+	// nodeStore := store.Nodes()
+	// eventStore := store.Events()
 	workflowStore := wfregistry.NewPostgresWorkflowStore(db)
 
 	// ---- REGISTRIES ----
@@ -41,7 +44,7 @@ func main() {
 	moduleRegistry := registry.NewModuleRegistry(modulePg)
 
 	// ---- TEMPORAL GLOBALS ----
-	temporal.SetExecutionStore(execStore)
+	temporal.SetExecutionStore(executionStore)
 	temporal.SetWorkflowStore(workflowStore)
 	temporal.SetModuleRegistry(moduleRegistry)
 
