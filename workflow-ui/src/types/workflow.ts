@@ -74,3 +74,21 @@ export interface GetExecutionResponse {
   error?: string;
 }
 
+export interface ListExecutionsRequest {
+  projectId: string;
+  workflowId?: string;
+}
+
+export interface ExecutionInfo {
+  id: string;
+  workflowId: string;
+  projectId: string;
+  clientRequestId: string;
+  state: string;
+  error?: string;
+}
+
+export interface ListExecutionsResponse {
+  executions: ExecutionInfo[];
+}
+

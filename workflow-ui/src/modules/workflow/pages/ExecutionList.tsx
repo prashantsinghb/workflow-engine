@@ -18,6 +18,8 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import {
@@ -25,39 +27,69 @@ import {
   Visibility as ViewIcon,
   Refresh as RefreshIcon,
 } from "@mui/icons-material";
-import { ExecutionState } from "@/types/workflow";
-
-interface Execution {
-  id: string;
-  workflowId: string;
-  state: string;
-  createdAt: string;
-}
+import { ExecutionState, ExecutionInfo } from "@/types/workflow";
+import { workflowApi } from "@/services/client/workflowApi";
+import { toast } from "react-toastify";
 
 const ExecutionList = () => {
   const navigate = useNavigate();
-  const [executions] = useState<Execution[]>([]);
+  const [executions, setExecutions] = useState<ExecutionInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [projectId] = useState("default-project");
+
+  const fetchExecutions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await workflowApi.listExecutions({ projectId });
+      setExecutions(response.executions || []);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch executions";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // TODO: Implement API call to list executions
-    // For now, using placeholder
-  }, [statusFilter]);
+    fetchExecutions();
+  }, [projectId]);
 
-  const getStateColor = (state: ExecutionState) => {
-    switch (state) {
-      case ExecutionState.SUCCESS:
+  const getStateColor = (state: string) => {
+    switch (state.toUpperCase()) {
+      case "SUCCESS":
+      case "SUCCEEDED":
         return "success";
-      case ExecutionState.FAILED:
+      case "FAILED":
         return "error";
-      case ExecutionState.RUNNING:
+      case "RUNNING":
         return "info";
-      case ExecutionState.PENDING:
+      case "PENDING":
         return "warning";
       default:
         return "default";
     }
+  };
+
+  const normalizeState = (state: string): ExecutionState => {
+    const upperState = state.toUpperCase();
+    if (upperState === "SUCCESS" || upperState === "SUCCEEDED") {
+      return ExecutionState.SUCCESS;
+    }
+    if (upperState === "FAILED") {
+      return ExecutionState.FAILED;
+    }
+    if (upperState === "RUNNING") {
+      return ExecutionState.RUNNING;
+    }
+    if (upperState === "PENDING") {
+      return ExecutionState.PENDING;
+    }
+    return ExecutionState.EXECUTION_STATE_UNSPECIFIED;
   };
 
   const filteredExecutions = executions.filter((execution) => {
@@ -65,7 +97,7 @@ const ExecutionList = () => {
       execution.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       execution.workflowId?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
-      statusFilter === "all" || execution.state === statusFilter;
+      statusFilter === "all" || normalizeState(execution.state) === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -78,11 +110,8 @@ const ExecutionList = () => {
         <Button
           variant="outlined"
           startIcon={<RefreshIcon />}
-          onClick={() => {
-            setLoading(true);
-            // TODO: Refresh executions
-            setTimeout(() => setLoading(false), 500);
-          }}
+          onClick={fetchExecutions}
+          disabled={loading}
         >
           Refresh
         </Button>
@@ -121,69 +150,88 @@ const ExecutionList = () => {
         </Box>
       </Paper>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Execution ID</TableCell>
-              <TableCell>Workflow ID</TableCell>
-              <TableCell>State</TableCell>
-              <TableCell>Created</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredExecutions.length === 0 ? (
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {loading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    {searchTerm || statusFilter !== "all"
-                      ? "No executions match your filters."
-                      : "No executions found. Start a workflow execution to see it here."}
-                  </Typography>
-                </TableCell>
+                <TableCell>Execution ID</TableCell>
+                <TableCell>Workflow ID</TableCell>
+                <TableCell>State</TableCell>
+                <TableCell>Error</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
-            ) : (
-              filteredExecutions.map((execution) => (
-                <TableRow key={execution.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
-                      {execution.id?.substring(0, 8)}...
+            </TableHead>
+            <TableBody>
+              {filteredExecutions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {searchTerm || statusFilter !== "all"
+                        ? "No executions match your filters."
+                        : "No executions found. Start a workflow execution to see it here."}
                     </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
-                      {execution.workflowId?.substring(0, 8)}...
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={execution.state}
-                      color={getStateColor(execution.state) as "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {execution.createdAt
-                      ? new Date(execution.createdAt).toLocaleString()
-                      : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <IconButton
-                      size="small"
-                      onClick={() =>
-                        navigate(`/workflows/executions/${execution.id}`)
-                      }
-                    >
-                      <ViewIcon />
-                    </IconButton>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              ) : (
+                filteredExecutions.map((execution) => (
+                  <TableRow key={execution.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+                        {execution.id}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+                        {execution.workflowId}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={execution.state}
+                        color={getStateColor(execution.state) as "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {execution.error ? (
+                        <Typography variant="body2" color="error" sx={{ maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {execution.error}
+                        </Typography>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          -
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          navigate(`/workflows/executions/${execution.id}`)
+                        }
+                        title="View Details"
+                      >
+                        <ViewIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
     </Box>
   );
 };

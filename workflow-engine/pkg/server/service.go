@@ -217,36 +217,47 @@ func (s *WorkflowServer) StartWorkflow(
 		return nil, err
 	}
 
-	tc, err := temporal.GetClientForProject(req.ProjectId)
-	if err != nil {
-		return nil, err
-	}
+	// Start workflow asynchronously to avoid blocking HTTP request
+	// Use a goroutine to start the workflow in the background
+	go func() {
+		bgCtx := context.Background()
+		
+		tc, err := temporal.GetClientForProject(req.ProjectId)
+		if err != nil {
+			// Mark execution as failed if we can't connect to Temporal
+			_ = s.execStore.MarkFailed(bgCtx, exec.ID, fmt.Sprintf("Failed to connect to Temporal: %v", err))
+			return
+		}
 
-	opts := client.StartWorkflowOptions{
-		ID:        temporalWorkflowID,
-		TaskQueue: "workflow-task-queue",
-	}
+		opts := client.StartWorkflowOptions{
+			ID:        temporalWorkflowID,
+			TaskQueue: "workflow-task-queue",
+		}
 
-	we, err := tc.Client.ExecuteWorkflow(
-		ctx,
-		opts,
-		temporal.WorkflowExecution,
-		exec.ID,
-		req.ProjectId,
-		req.WorkflowId,
-		inputs,
-	)
-	if err != nil {
-		return nil, err
-	}
+		we, err := tc.Client.ExecuteWorkflow(
+			bgCtx,
+			opts,
+			temporal.WorkflowExecution,
+			exec.ID,
+			req.ProjectId,
+			req.WorkflowId,
+			inputs,
+		)
+		if err != nil {
+			// Mark execution as failed if workflow start fails
+			_ = s.execStore.MarkFailed(bgCtx, exec.ID, fmt.Sprintf("Failed to start workflow: %v", err))
+			return
+		}
 
-	if err := s.execStore.MarkRunning(ctx, exec.ID, we.GetRunID()); err != nil {
-		return nil, err
-	}
+		// Mark execution as running once workflow is started
+		_ = s.execStore.MarkRunning(bgCtx, exec.ID, we.GetRunID())
+	}()
 
+	// Return immediately with PENDING state
+	// The workflow will be started asynchronously and state will update to RUNNING
 	return &service.StartWorkflowResponse{
 		ExecutionId: exec.ID,
-		State:       string(execution.StateRunning),
+		State:       string(execution.StatePending),
 	}, nil
 }
 
@@ -287,4 +298,34 @@ func (s *WorkflowServer) GetExecution(
 		Outputs: outputs,
 		Error:   exec.Error,
 	}, nil
+}
+
+/* ---------------------- LIST EXECUTIONS ---------------------- */
+
+func (s *WorkflowServer) ListExecutions(
+	ctx context.Context,
+	req *service.ListExecutionsRequest,
+) (*service.ListExecutionsResponse, error) {
+
+	execs, err := s.execStore.ListExecutions(ctx, req.ProjectId, req.WorkflowId)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &service.ListExecutionsResponse{
+		Executions: make([]*service.ExecutionInfo, len(execs)),
+	}
+
+	for i, e := range execs {
+		res.Executions[i] = &service.ExecutionInfo{
+			Id:              e.ID,
+			WorkflowId:      e.WorkflowID,
+			ProjectId:       e.ProjectID,
+			ClientRequestId: e.ClientRequestID,
+			State:           string(e.State),
+			Error:           e.Error,
+		}
+	}
+
+	return res, nil
 }

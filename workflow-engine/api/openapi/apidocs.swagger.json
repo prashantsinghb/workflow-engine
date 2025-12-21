@@ -24,6 +24,41 @@
   ],
   "paths": {
     "/v1/projects/{projectId}/executions": {
+      "get": {
+        "operationId": "WorkflowService_ListExecutions",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListExecutionsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "workflowId",
+            "description": "optional filter",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "WorkflowService"
+        ]
+      },
       "post": {
         "summary": "Start workflow execution",
         "operationId": "WorkflowService_StartWorkflow",
@@ -500,6 +535,29 @@
         }
       }
     },
+    "v1ExecutionInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "workflowId": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "clientRequestId": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
     "v1ExecutionState": {
       "type": "string",
       "enum": [
@@ -596,6 +654,18 @@
         "timeoutMs": {
           "type": "integer",
           "format": "int32"
+        }
+      }
+    },
+    "v1ListExecutionsResponse": {
+      "type": "object",
+      "properties": {
+        "executions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1ExecutionInfo"
+          }
         }
       }
     },

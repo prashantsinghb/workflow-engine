@@ -11,4 +11,5 @@ type Store interface {
 	MarkCompleted(ctx context.Context, executionID string, outputs map[string]interface{}) error
 	MarkFailed(ctx context.Context, executionID string, errMsg string) error
 	UpdateNodeOutputs(ctx context.Context, nodeID string, outputs map[string]interface{}) error
+	ListExecutions(ctx context.Context, projectID, workflowID string) ([]*Execution, error)
 }

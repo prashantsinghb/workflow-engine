@@ -75,13 +75,14 @@ func (s *PostgresStore) GetExecution(ctx context.Context, projectID, executionID
 	var exec Execution
 	var inputs, outputs []byte
 	var errorStr sql.NullString
+	var temporalRunID sql.NullString
 
 	err := row.Scan(
 		&exec.ID,
 		&exec.ProjectID,
 		&exec.WorkflowID,
 		&exec.TemporalWorkflowID,
-		&exec.TemporalRunID,
+		&temporalRunID,
 		&exec.State,
 		&errorStr,
 		&inputs,
@@ -98,6 +99,9 @@ func (s *PostgresStore) GetExecution(ctx context.Context, projectID, executionID
 		return nil, err
 	}
 
+	if temporalRunID.Valid {
+		exec.TemporalRunID = temporalRunID.String
+	}
 	if errorStr.Valid {
 		exec.Error = errorStr.String
 	}
@@ -147,6 +151,7 @@ func (s *PostgresStore) GetByIdempotencyKey(
 
 	var e Execution
 	var errorStr sql.NullString
+	var temporalRunID sql.NullString
 	var inputs, outputs []byte
 
 	if err := row.Scan(
@@ -155,7 +160,7 @@ func (s *PostgresStore) GetByIdempotencyKey(
 		&e.WorkflowID,
 		&e.ClientRequestID,
 		&e.TemporalWorkflowID,
-		&e.TemporalRunID,
+		&temporalRunID,
 		&e.State,
 		&errorStr,
 		&inputs,
@@ -168,6 +173,9 @@ func (s *PostgresStore) GetByIdempotencyKey(
 		return nil, err
 	}
 
+	if temporalRunID.Valid {
+		e.TemporalRunID = temporalRunID.String
+	}
 	if errorStr.Valid {
 		e.Error = errorStr.String
 	}
@@ -244,4 +252,35 @@ func (s *PostgresStore) UpdateNodeOutputs(ctx context.Context, nodeID string, ou
 	query := `UPDATE nodes SET outputs=$2, updated_at=now() WHERE id=$1`
 	_, err := s.db.ExecContext(ctx, query, nodeID, outputs)
 	return err
+}
+
+func (s *PostgresStore) ListExecutions(ctx context.Context, projectID, workflowID string) ([]*Execution, error) {
+	query := `SELECT id, project_id, workflow_id, client_request_id, state, error FROM executions WHERE project_id = $1`
+	args := []interface{}{projectID}
+
+	if workflowID != "" {
+		query += ` AND workflow_id = $2`
+		args = append(args, workflowID)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []*Execution
+	for rows.Next() {
+		e := &Execution{}
+		var errorStr sql.NullString
+		if err := rows.Scan(&e.ID, &e.ProjectID, &e.WorkflowID, &e.ClientRequestID, &e.State, &errorStr); err != nil {
+			return nil, err
+		}
+		if errorStr.Valid {
+			e.Error = errorStr.String
+		}
+		result = append(result, e)
+	}
+
+	return result, nil
 }

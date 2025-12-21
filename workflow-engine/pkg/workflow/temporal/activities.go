@@ -3,6 +3,7 @@ package temporal
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/prashantsinghb/workflow-engine/pkg/execution"
 	"github.com/prashantsinghb/workflow-engine/pkg/module/registry"
@@ -30,6 +31,59 @@ func SetWorkflowStore(s wfregistry.WorkflowStore) {
 	WorkflowStore = s
 }
 
+// --- helper to merge inputs for a node ---
+func mergeNodeInputs(node *dag.Node, workflowInputs map[string]interface{}, stepOutputs map[string]map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	// workflow-level inputs
+	for k, v := range workflowInputs {
+		result[k] = v
+	}
+
+	// outputs from dependent nodes
+	for _, dep := range node.Depends {
+		if depOut, ok := stepOutputs[string(dep)]; ok {
+			for k, v := range depOut {
+				result[k] = v
+			}
+		}
+	}
+
+	// node-level 'with' overrides
+	for k, v := range node.With {
+		result[k] = v
+	}
+
+	return result
+}
+
+// --- helper to extract workflow inputs safely from Temporal payloads ---
+func extractWorkflowInputs(inputs map[string]interface{}) map[string]interface{} {
+	result := map[string]interface{}{}
+
+	// Temporal SDK may pass payloads as "payloads" key
+	if plRaw, ok := inputs["payloads"]; ok {
+		if arr, ok := plRaw.([]interface{}); ok && len(arr) > 0 {
+			// take last item, should be a map[string]interface{}
+			if last, ok := arr[len(arr)-1].(map[string]interface{}); ok {
+				for k, v := range last {
+					result[k] = v
+				}
+			}
+		}
+	}
+
+	// fallback: merge any top-level keys
+	for k, v := range inputs {
+		if k != "payloads" {
+			result[k] = v
+		}
+	}
+
+	return result
+}
+
+// --- NodeActivity executes a workflow DAG inside Temporal ---
 func NodeActivity(
 	ctx context.Context,
 	projectID string,
@@ -43,6 +97,9 @@ func NodeActivity(
 	if ModuleRegistry == nil {
 		return nil, fmt.Errorf("module registry not set")
 	}
+
+	// extract workflow-level inputs properly
+	wfInputs := extractWorkflowInputs(inputs)
 
 	// Load workflow
 	wf, err := WorkflowStore.Get(ctx, projectID, workflowID)
@@ -80,7 +137,14 @@ func NodeActivity(
 				return nil, fmt.Errorf("executor not found: %s", mod.Runtime)
 			}
 
-			out, err := execImpl.Execute(actCtx, node, inputs)
+			// Merge inputs for this node
+			nodeInputs := mergeNodeInputs(node, wfInputs, stepOutputs)
+
+			// log for debugging
+			log.Printf("Executing node %s with inputs: %+v\n", id, nodeInputs)
+
+			// Execute node
+			out, err := execImpl.Execute(actCtx, node, nodeInputs)
 			if err != nil {
 				return nil, err
 			}
@@ -98,6 +162,7 @@ func NodeActivity(
 	return stepOutputsToFlat(stepOutputs), nil
 }
 
+// --- helpers to mark execution status ---
 func MarkExecutionSucceeded(
 	ctx context.Context,
 	executionID string,
@@ -120,6 +185,7 @@ func MarkExecutionFailed(
 	return ExecutionStore.MarkFailed(ctx, executionID, errMsg)
 }
 
+// --- helper to check if node dependencies are satisfied ---
 func isReady(node *dag.Node, done map[dag.NodeID]bool) bool {
 	for _, dep := range node.Depends {
 		if !done[dep] {
@@ -129,6 +195,7 @@ func isReady(node *dag.Node, done map[dag.NodeID]bool) bool {
 	return true
 }
 
+// --- flatten step outputs ---
 func stepOutputsToFlat(in map[string]map[string]interface{}) map[string]interface{} {
 	out := map[string]interface{}{}
 	for k, v := range in {

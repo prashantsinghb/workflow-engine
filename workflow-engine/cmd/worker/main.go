@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	TemporalAddr = "localhost:7233"
+	TemporalAddr = "127.0.0.1:7233"
 	TaskQueue    = "workflow-task-queue"
 )
 

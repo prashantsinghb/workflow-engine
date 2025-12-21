@@ -11,6 +11,8 @@ import type {
   StartWorkflowRequest,
   StartWorkflowResponse,
   GetExecutionResponse,
+  ListExecutionsRequest,
+  ListExecutionsResponse,
 } from "@/types/workflow";
 
 export const workflowApi = {
@@ -60,6 +62,17 @@ export const workflowApi = {
     const response = await apiClient.instance.get<GetExecutionResponse>(
       `/v1/projects/${projectId}/executions/${executionId}`
     );
+    return response.data;
+  },
+
+  listExecutions: async (request: ListExecutionsRequest): Promise<ListExecutionsResponse> => {
+    const params = new URLSearchParams();
+    if (request.workflowId) {
+      params.append("workflowId", request.workflowId);
+    }
+    const queryString = params.toString();
+    const url = `/v1/projects/${request.projectId}/executions${queryString ? `?${queryString}` : ""}`;
+    const response = await apiClient.instance.get<ListExecutionsResponse>(url);
     return response.data;
   },
 };
