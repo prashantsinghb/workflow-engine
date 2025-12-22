@@ -14,9 +14,6 @@ type Context struct {
 	// Step resolution
 	Modules registry.ModuleRegistry
 
-	// How steps execute
-	//Executors executor.Registry
-
 	Workflow wfRegistry.WorkflowStore
 
 	Temporal client.Client

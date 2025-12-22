@@ -13,6 +13,18 @@ type Node struct {
 	Executor string
 	Uses     string
 	With     map[string]interface{}
+	Retry    *RetryPolicy
+}
+
+type RetryPolicy struct {
+	MaxAttempts int
+}
+
+func (r *RetryPolicy) MaxAttemptsOrDefault() int {
+	if r == nil || r.MaxAttempts <= 0 {
+		return 1
+	}
+	return r.MaxAttempts
 }
 
 type Graph struct {

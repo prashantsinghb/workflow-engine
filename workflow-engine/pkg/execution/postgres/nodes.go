@@ -182,3 +182,69 @@ func (s *nodeStore) ListByExecution(
 
 	return nodes, nil
 }
+
+func (s *nodeStore) ListRunnable(
+	ctx context.Context,
+	executionID uuid.UUID,
+) ([]execution.ExecutionNode, error) {
+	// List nodes that are in PENDING or RETRYING status
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT
+			id, execution_id, node_id,
+			executor_type, status,
+			attempt, max_attempts,
+			input, output, error,
+			started_at, completed_at, duration_ms
+		FROM execution_nodes
+		WHERE execution_id = $1
+			AND (status = $2 OR status = $3)
+	`, executionID, execution.NodePending, execution.NodeRetrying)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var nodes []execution.ExecutionNode
+	for rows.Next() {
+		var n execution.ExecutionNode
+		var input, output, errJSON []byte
+		var started, completed sql.NullTime
+		var duration sql.NullInt64
+
+		if err := rows.Scan(
+			&n.ID,
+			&n.ExecutionID,
+			&n.NodeID,
+			&n.ExecutorType,
+			&n.Status,
+			&n.Attempt,
+			&n.MaxAttempts,
+			&input,
+			&output,
+			&errJSON,
+			&started,
+			&completed,
+			&duration,
+		); err != nil {
+			return nil, err
+		}
+
+		_ = json.Unmarshal(input, &n.Input)
+		_ = json.Unmarshal(output, &n.Output)
+		_ = json.Unmarshal(errJSON, &n.Error)
+
+		if started.Valid {
+			n.StartedAt = &started.Time
+		}
+		if completed.Valid {
+			n.CompletedAt = &completed.Time
+		}
+		if duration.Valid {
+			n.DurationMs = &duration.Int64
+		}
+
+		nodes = append(nodes, n)
+	}
+
+	return nodes, nil
+}

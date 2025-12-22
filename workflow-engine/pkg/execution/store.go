@@ -29,7 +29,6 @@ type ExecutionStore interface {
 	MarkRunning(
 		ctx context.Context,
 		executionID uuid.UUID,
-		runID string,
 	) error
 
 	MarkCompleted(
@@ -87,6 +86,11 @@ type NodeStore interface {
 	) error
 
 	ListByExecution(
+		ctx context.Context,
+		executionID uuid.UUID,
+	) ([]ExecutionNode, error)
+
+	ListRunnable(
 		ctx context.Context,
 		executionID uuid.UUID,
 	) ([]ExecutionNode, error)

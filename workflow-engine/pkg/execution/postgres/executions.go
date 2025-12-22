@@ -91,21 +91,18 @@ func (s *executionStore) GetByIdempotencyKey(
 func (s *executionStore) MarkRunning(
 	ctx context.Context,
 	executionID uuid.UUID,
-	runID string,
 ) error {
 
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE executions
 		SET
 			state = $2,
-			temporal_run_id = $3,
 			started_at = now(),
 			updated_at = now()
 		WHERE id = $1
 	`,
 		executionID,
 		execution.ExecutionRunning,
-		runID,
 	)
 	return err
 }

@@ -7,15 +7,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"go.temporal.io/sdk/client"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	service "github.com/prashantsinghb/workflow-engine/api/service"
 	"github.com/prashantsinghb/workflow-engine/pkg/execution"
 	moduleregistry "github.com/prashantsinghb/workflow-engine/pkg/module/registry"
+	wfexecution "github.com/prashantsinghb/workflow-engine/pkg/workflow/execution"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/parser"
 	wfregistry "github.com/prashantsinghb/workflow-engine/pkg/workflow/registry"
-	"github.com/prashantsinghb/workflow-engine/pkg/workflow/temporal"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/validation"
 )
 
@@ -26,18 +25,30 @@ type WorkflowServer struct {
 	wfStore   wfregistry.WorkflowStore
 	modules   *moduleregistry.ModuleRegistry
 	validator *validation.WorkflowValidator
+	engine    *wfexecution.Engine
 }
 
 func NewWorkflowService(
 	execStore execution.ExecutionStore,
+	nodeStore execution.NodeStore,
+	eventStore execution.EventStore,
 	wfStore wfregistry.WorkflowStore,
 	modules *moduleregistry.ModuleRegistry,
 ) *WorkflowServer {
+	engine := &wfexecution.Engine{
+		ExecStore:   execStore,
+		NodeStore:   nodeStore,
+		EventStore:  eventStore,
+		WorkflowReg: wfStore,
+		ModuleReg:   modules,
+	}
+
 	return &WorkflowServer{
 		execStore: execStore,
 		wfStore:   wfStore,
 		modules:   modules,
 		validator: validation.NewWorkflowValidator(),
+		engine:    engine,
 	}
 }
 
@@ -173,14 +184,6 @@ func (s *WorkflowServer) StartWorkflow(
 	ctx context.Context,
 	req *service.StartWorkflowRequest,
 ) (*service.StartWorkflowResponse, error) {
-
-	temporalWorkflowID := fmt.Sprintf(
-		"%s:%s:%s",
-		req.ProjectId,
-		req.WorkflowId,
-		req.ClientRequestId,
-	)
-
 	inputs := make(map[string]interface{}, len(req.Inputs))
 	for k, v := range req.Inputs {
 		if v != nil {
@@ -189,17 +192,15 @@ func (s *WorkflowServer) StartWorkflow(
 	}
 
 	exec := &execution.Execution{
-		ID:                 uuid.New(),
-		ProjectID:          req.ProjectId,
-		WorkflowID:         req.WorkflowId,
-		ClientRequestID:    req.ClientRequestId,
-		TemporalWorkflowID: temporalWorkflowID,
-		Status:             execution.ExecutionPending,
-		Inputs:             inputs,
+		ID:              uuid.New(),
+		ProjectID:       req.ProjectId,
+		WorkflowID:      req.WorkflowId,
+		ClientRequestID: req.ClientRequestId,
+		Status:          execution.ExecutionPending,
+		Inputs:          inputs,
 	}
 
-	err := s.execStore.Create(ctx, exec)
-	if err != nil {
+	if err := s.execStore.Create(ctx, exec); err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
 			existing, err := s.execStore.GetByIdempotencyKey(
 				ctx,
@@ -210,52 +211,26 @@ func (s *WorkflowServer) StartWorkflow(
 			if err != nil {
 				return nil, err
 			}
+
 			return &service.StartWorkflowResponse{
 				ExecutionId: existing.ID.String(),
 				State:       string(existing.Status),
 			}, nil
 		}
+
 		return nil, err
 	}
 
-	// Start workflow asynchronously to avoid blocking HTTP request
-	// Use a goroutine to start the workflow in the background
 	go func() {
 		bgCtx := context.Background()
-
-		tc, err := temporal.GetClientForProject(req.ProjectId)
-		if err != nil {
-			// Mark execution as failed if we can't connect to Temporal
-			_ = s.execStore.MarkFailed(bgCtx, exec.ID, map[string]any{"message": fmt.Sprintf("Failed to connect to Temporal: %v", err)})
+		if err := s.engine.StartExecution(bgCtx, req.ProjectId, exec.ID); err != nil {
+			_ = s.execStore.MarkFailed(bgCtx, exec.ID, map[string]any{
+				"message": err.Error(),
+			})
 			return
 		}
-
-		opts := client.StartWorkflowOptions{
-			ID:        temporalWorkflowID,
-			TaskQueue: "workflow-task-queue",
-		}
-
-		we, err := tc.Client.ExecuteWorkflow(
-			bgCtx,
-			opts,
-			temporal.WorkflowExecution,
-			exec.ID.String(),
-			req.ProjectId,
-			req.WorkflowId,
-			inputs,
-		)
-		if err != nil {
-			// Mark execution as failed if workflow start fails
-			_ = s.execStore.MarkFailed(bgCtx, exec.ID, map[string]any{"message": fmt.Sprintf("Failed to start workflow: %v", err)})
-			return
-		}
-
-		// Mark execution as running once workflow is started
-		_ = s.execStore.MarkRunning(bgCtx, exec.ID, we.GetRunID())
 	}()
 
-	// Return immediately with PENDING state
-	// The workflow will be started asynchronously and state will update to RUNNING
 	return &service.StartWorkflowResponse{
 		ExecutionId: exec.ID.String(),
 		State:       string(execution.ExecutionPending),
