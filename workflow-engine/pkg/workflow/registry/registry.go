@@ -21,6 +21,8 @@ type StepDefinition struct {
 	InputSchema  map[string]string
 	OutputSchema map[string]string
 	Metadata     map[string]string
+	Endpoint     string
+	Protocol     string
 }
 
 // StepRegistry interface
@@ -76,7 +78,7 @@ func (r *LocalStepRegistry) ListSteps() []*StepDefinition {
 // ------------------------
 func RegisterFunctionStep(
 	ctx context.Context,
-	name, version, service string,
+	name, version, service, endpoint, protocol string,
 	fn func(ctx context.Context, inputs map[string]interface{}) (map[string]interface{}, error),
 	stepRegistry StepRegistry,
 	moduleRegistry *moduleregistry.ModuleRegistry,
@@ -98,6 +100,8 @@ func RegisterFunctionStep(
 		InputSchema:  inputSchema,
 		OutputSchema: outputSchema,
 		Metadata:     map[string]string{"registered_by": service},
+		Endpoint:     endpoint,
+		Protocol:     protocol,
 	}
 
 	if err := stepRegistry.RegisterStep(ctx, stepDef); err != nil {
@@ -123,6 +127,11 @@ func RegisterFunctionStep(
 		Runtime: "go",
 		Inputs:  inputs,
 		Outputs: outputs,
+		RuntimeConfig: map[string]interface{}{
+			"service":  service,
+			"endpoint": endpoint,
+			"protocol": protocol,
+		},
 	}
 
 	_, err := moduleRegistry.Register(ctx, mod)
@@ -141,7 +150,7 @@ func RegisterFunctionStep(
 func RegisterAnnotated(
 	ctx context.Context,
 	target any,
-	service string,
+	service, endpoint, protocol string,
 	stepRegistry StepRegistry,
 	moduleRegistry *moduleregistry.ModuleRegistry,
 ) error {
@@ -190,6 +199,8 @@ func RegisterAnnotated(
 			stepName,
 			"v1",
 			service,
+			endpoint,
+			protocol,
 			handlerFn,
 			stepRegistry,
 			moduleRegistry,
@@ -238,4 +249,67 @@ func isError(t reflect.Type) bool {
 
 func toStepName(structName, method string) string {
 	return strings.ToLower(structName + "." + method)
+}
+
+func RegisterRemoteStep(
+	ctx context.Context,
+	name, version, service string,
+	protocol string, // grpc | http
+	endpoint string,
+	stepRegistry StepRegistry,
+	moduleRegistry *moduleregistry.ModuleRegistry,
+	inputSchema, outputSchema map[string]string,
+) error {
+
+	if version == "" {
+		version = "v1"
+	}
+
+	// 1️⃣ Register step (NO executor)
+	stepDef := StepDefinition{
+		Name:         name,
+		Version:      version,
+		Service:      service,
+		Executor:     nil, // 🔥 THIS IS KEY
+		Protocol:     protocol,
+		Endpoint:     endpoint,
+		InputSchema:  inputSchema,
+		OutputSchema: outputSchema,
+		Metadata: map[string]string{
+			"registered_by": "remote",
+		},
+	}
+
+	if err := stepRegistry.RegisterStep(ctx, stepDef); err != nil {
+		return err
+	}
+
+	// 2️⃣ Register module (runtime aware)
+	mod := &api.Module{
+		Name:    name,
+		Version: version,
+		Runtime: protocol, // grpc | http | docker
+		Inputs:  toInterfaceMap(inputSchema),
+		Outputs: toInterfaceMap(outputSchema),
+		RuntimeConfig: map[string]interface{}{
+			"endpoint": endpoint,
+			"protocol": protocol,
+			"service":  service,
+		},
+	}
+
+	_, err := moduleRegistry.Register(ctx, mod)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func toInterfaceMap(in map[string]string) map[string]interface{} {
+	out := make(map[string]interface{}, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }

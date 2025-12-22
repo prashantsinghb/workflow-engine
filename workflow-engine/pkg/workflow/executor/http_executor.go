@@ -9,18 +9,18 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/prashantsinghb/workflow-engine/pkg/module/registry"
+	wfRegistry "github.com/prashantsinghb/workflow-engine/pkg/module/registry"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/dag"
 )
 
 // HttpExecutor executes modules via HTTP
 type HttpExecutor struct {
-	modules *registry.ModuleRegistry
+	modules *wfRegistry.ModuleRegistry
 	client  *http.Client
 }
 
 // NewHttpExecutor creates a new HTTP executor
-func NewHttpExecutor(modules *registry.ModuleRegistry) *HttpExecutor {
+func NewHttpExecutor(modules *wfRegistry.ModuleRegistry) *HttpExecutor {
 	return &HttpExecutor{
 		modules: modules,
 		client:  &http.Client{},

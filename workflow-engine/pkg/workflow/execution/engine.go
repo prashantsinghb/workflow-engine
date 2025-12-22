@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/prashantsinghb/workflow-engine/pkg/module/registry"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/dag"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/executor"
 	wfRegistry "github.com/prashantsinghb/workflow-engine/pkg/workflow/registry"
@@ -39,13 +38,12 @@ func Start(
 	projectID string,
 	workflowID string,
 	inputs map[string]interface{},
-	moduleRegistry registry.ModuleRegistry,
-	workflowStore wfRegistry.WorkflowStore,
+	executionContext *Context,
 ) (string, error) {
 
 	ctx = executor.WithProjectID(ctx, projectID)
 
-	wf, err := workflowStore.Get(ctx, projectID, workflowID)
+	wf, err := executionContext.Workflow.Get(ctx, projectID, workflowID)
 	if err != nil {
 		return "", err
 	}
@@ -84,7 +82,7 @@ func Start(
 				continue
 			}
 
-			mod, err := moduleRegistry.Resolve(ctx, projectID, node.Uses)
+			mod, err := executionContext.Modules.Resolve(ctx, projectID, node.Uses)
 			if err != nil {
 				exec.State = StateFailed
 				exec.Error = err.Error()

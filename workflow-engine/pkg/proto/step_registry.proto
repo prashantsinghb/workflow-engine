@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/prashantsinghb/workflow-engine/pkg/proto;proto";
+
+service StepRegistry {
+  rpc RegisterSteps(RegisterStepsRequest) returns (RegisterStepsResponse);
+}
+
+message StepSpec {
+  string name = 1;
+  string version = 2;
+  string protocol = 3;  // grpc | http | docker
+  string endpoint = 4;
+  map<string, string> input_schema = 5;
+  map<string, string> output_schema = 6;
+}
+
+message RegisterStepsRequest {
+  string service = 1;
+  repeated StepSpec steps = 2;
+}
+
+message RegisterStepsResponse {
+  bool success = 1;
+  string message = 2;
+}

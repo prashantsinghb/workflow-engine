@@ -3,27 +3,23 @@ package execution
 import (
 	"context"
 	"log"
-
-	"github.com/prashantsinghb/workflow-engine/pkg/execution"
-
-	"go.temporal.io/sdk/client"
 )
 
-func Reconcile(ctx context.Context, store execution.ExecutionStore, temporal client.Client) {
-	execs, err := store.ListRunning(ctx)
+func Reconcile(ctx context.Context, executionContext *Context) {
+	execs, err := executionContext.Store.Executions().ListRunning(ctx)
 	if err != nil {
 		log.Println("Reconcile: failed to list running executions:", err)
 		return
 	}
 
 	for _, e := range execs {
-		we := temporal.GetWorkflow(ctx, e.TemporalWorkflowID, "")
+		we := executionContext.Temporal.GetWorkflow(ctx, e.TemporalWorkflowID, "")
 		var status string
 		err := we.Get(ctx, &status)
 		if err != nil {
-			store.MarkFailed(ctx, e.ID, map[string]any{"message": err.Error()})
+			executionContext.Store.Executions().MarkFailed(ctx, e.ID, map[string]any{"message": err.Error()})
 		} else if status == "COMPLETED" {
-			store.MarkCompleted(ctx, e.ID, nil)
+			executionContext.Store.Executions().MarkCompleted(ctx, e.ID, nil)
 		}
 	}
 }

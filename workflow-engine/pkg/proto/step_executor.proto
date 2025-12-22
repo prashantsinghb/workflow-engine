@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "github.com/prashantsinghb/workflow-engine/pkg/proto;proto";
+
+// Request from engine to microservice to execute a step
+message ExecuteRequest {
+  string step = 1;
+  map<string, string> input = 2; // string map for simplicity
+}
+
+// Response from microservice
+message ExecuteResponse {
+  map<string, string> output = 1; // string map
+  string error = 2;               // empty if no error
+}
+
+// gRPC service implemented by microservice
+service StepExecutor {
+  rpc ExecuteStep(ExecuteRequest) returns (ExecuteResponse);
+}
