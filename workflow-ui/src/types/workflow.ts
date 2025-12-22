@@ -71,6 +71,7 @@ export enum ExecutionState {
 
 export interface GetExecutionResponse {
   state: ExecutionState;
+  inputs?: Record<string, unknown>;
   outputs?: Record<string, unknown>;
   error?: string;
 }

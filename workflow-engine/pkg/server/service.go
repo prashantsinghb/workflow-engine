@@ -268,6 +268,12 @@ func (s *WorkflowServer) GetExecution(
 		state = service.ExecutionState_EXECUTION_STATE_UNSPECIFIED
 	}
 
+	inputs := map[string]*structpb.Value{}
+	for k, v := range exec.Inputs {
+		val, _ := structpb.NewValue(v)
+		inputs[k] = val
+	}
+
 	outputs := map[string]*structpb.Value{}
 	for k, v := range exec.Outputs {
 		val, _ := structpb.NewValue(v)
@@ -288,6 +294,7 @@ func (s *WorkflowServer) GetExecution(
 
 	return &service.GetExecutionResponse{
 		State:   state,
+		Inputs:  inputs,
 		Outputs: outputs,
 		Error:   errorStr,
 	}, nil

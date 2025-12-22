@@ -26,6 +26,8 @@ func NewRemoteExecutor(modules *mRegistry.ModuleRegistry) *RemoteExecutor {
 
 // Execute executes a remote step
 func (r *RemoteExecutor) Execute(ctx context.Context, node *dag.Node, inputs map[string]interface{}) (map[string]interface{}, error) {
+	fmt.Println("Executing remote executor", node.Uses)
+
 	mod, err := r.modules.GetModule(ctx, "", node.Uses, "")
 	if err != nil {
 		return nil, errors.New("step not found in registry: " + node.Executor)
@@ -41,9 +43,10 @@ func (r *RemoteExecutor) Execute(ctx context.Context, node *dag.Node, inputs map
 		return nil, errors.New("endpoint not found or invalid in runtime config")
 	}
 
-	if protocol == "http" {
+	switch protocol {
+	case "http":
 		return executeHTTP(endpoint, node.Executor, inputs)
-	} else if protocol == "grpc" {
+	case "grpc":
 		return executeGRPC(endpoint, node.Executor, inputs)
 	}
 	return nil, errors.New("unsupported protocol: " + protocol)

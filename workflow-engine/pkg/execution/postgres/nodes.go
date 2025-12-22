@@ -32,7 +32,10 @@ func (s *nodeStore) Upsert(ctx context.Context, n *execution.ExecutionNode) erro
 		ON CONFLICT (execution_id, node_id)
 		DO UPDATE SET
 			executor_type = EXCLUDED.executor_type,
-			max_attempts = EXCLUDED.max_attempts
+			status = EXCLUDED.status,
+			attempt = EXCLUDED.attempt,
+			max_attempts = EXCLUDED.max_attempts,
+			input = EXCLUDED.input
 	`,
 		n.ID,
 		n.ExecutionID,

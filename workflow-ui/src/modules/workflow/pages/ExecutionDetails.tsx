@@ -174,6 +174,26 @@ const ExecutionDetails = () => {
           </Grid>
         )}
 
+        {execution.inputs && Object.keys(execution.inputs).length > 0 && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Inputs
+              </Typography>
+              <Accordion>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography>View Inputs</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <pre style={{ overflow: "auto", maxHeight: "400px" }}>
+                    {JSON.stringify(execution.inputs, null, 2)}
+                  </pre>
+                </AccordionDetails>
+              </Accordion>
+            </Paper>
+          </Grid>
+        )}
+
         {execution.outputs && Object.keys(execution.outputs).length > 0 && (
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>

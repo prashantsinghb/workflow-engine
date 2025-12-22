@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"fmt"
 
 	"google.golang.org/grpc"
 
@@ -18,7 +19,7 @@ func (d *DNSExecutor) ExecuteStep(
 ) (*pb.ExecuteResponse, error) {
 
 	domain := req.Input["domain"]
-
+	fmt.Println("domain", domain)
 	return &pb.ExecuteResponse{
 		Output: map[string]string{
 			"record_id": "dns-" + domain,
