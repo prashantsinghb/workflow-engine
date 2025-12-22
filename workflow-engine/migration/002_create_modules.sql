@@ -5,7 +5,7 @@ CREATE TABLE modules (
   version TEXT NOT NULL,
 
   runtime TEXT NOT NULL, -- http | docker | internal
-  runtime_config JSONB DEFAULT '{}'::jsonb
+  runtime_config JSONB DEFAULT '{}'::jsonb,
 
   inputs JSONB,
   outputs JSONB,
