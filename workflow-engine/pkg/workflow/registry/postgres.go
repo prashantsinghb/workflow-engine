@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/prashantsinghb/workflow-engine/pkg/workflow/parser"
@@ -108,4 +109,39 @@ func (s *PostgresWorkflowStore) Count(
 		return 0, err
 	}
 	return count, nil
+}
+
+func (r *PostgresWorkflowStore) RegisterStep(ctx context.Context, def StepDefinition) error {
+	metaJSON, _ := json.Marshal(def.Metadata)
+	inputJSON, _ := json.Marshal(def.InputSchema)
+	outputJSON, _ := json.Marshal(def.OutputSchema)
+
+	query := `
+    INSERT INTO workflow_steps (name, version, service, module_id, metadata, input_schema, output_schema)
+    VALUES ($1,$2,$3,$4,$5,$6,$7)
+    ON CONFLICT (name, version) DO UPDATE
+    SET service=$3, module_id=$4, metadata=$5, input_schema=$6, output_schema=$7
+    `
+	_, err := r.db.ExecContext(ctx, query, def.Name, def.Version, def.Service, def.ModuleID, string(metaJSON), string(inputJSON), string(outputJSON))
+	return err
+}
+
+func (r *PostgresWorkflowStore) GetStep(ctx context.Context, name, version string) (*StepDefinition, error) {
+	if version == "" {
+		version = "v1"
+	}
+	query := `SELECT name, version, service, module_id, metadata, input_schema, output_schema FROM workflow_steps WHERE name=$1 AND version=$2`
+	row := r.db.QueryRowContext(ctx, query, name, version)
+
+	var def StepDefinition
+	var metaJSON, inputJSON, outputJSON string
+	if err := row.Scan(&def.Name, &def.Version, &def.Service, &def.ModuleID, &metaJSON, &inputJSON, &outputJSON); err != nil {
+		return nil, err
+	}
+
+	json.Unmarshal([]byte(metaJSON), &def.Metadata)
+	json.Unmarshal([]byte(inputJSON), &def.InputSchema)
+	json.Unmarshal([]byte(outputJSON), &def.OutputSchema)
+
+	return &def, nil
 }

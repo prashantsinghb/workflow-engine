@@ -25,6 +25,7 @@ import {
   Search as SearchIcon,
   Http as HttpIcon,
   Storage as ContainerIcon,
+  Code as CodeIcon,
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import { moduleApi } from "@/services/client/moduleApi";
@@ -180,13 +181,29 @@ const ModuleList = () => {
                         icon={
                           module.runtime === "http" ? (
                             <HttpIcon fontSize="small" />
+                          ) : module.runtime === "go" ? (
+                            <CodeIcon fontSize="small" />
                           ) : (
                             <ContainerIcon fontSize="small" />
                           )
                         }
-                        label={module.runtime === "http" ? "HTTP" : "Container"}
+                        label={
+                          module.runtime === "http"
+                            ? "HTTP"
+                            : module.runtime === "go"
+                            ? "Go"
+                            : module.runtime === "docker"
+                            ? "Container"
+                            : module.runtime?.toUpperCase() || "Unknown"
+                        }
                         size="small"
-                        color={module.runtime === "http" ? "primary" : "secondary"}
+                        color={
+                          module.runtime === "http"
+                            ? "primary"
+                            : module.runtime === "go"
+                            ? "success"
+                            : "secondary"
+                        }
                         variant="outlined"
                       />
                     </TableCell>

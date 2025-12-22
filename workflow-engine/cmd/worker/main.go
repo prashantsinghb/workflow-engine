@@ -51,6 +51,7 @@ func main() {
 	// ---- EXECUTORS ----
 	executor.Register("http", executor.NewHttpExecutor(moduleRegistry))
 	executor.Register("noop", &executor.NoopExecutor{})
+	executor.Register("go", &executor.FuncExecutor{})
 
 	seen := map[string]bool{}
 	var mu sync.Mutex

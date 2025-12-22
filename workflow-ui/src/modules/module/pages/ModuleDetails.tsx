@@ -17,6 +17,7 @@ import {
   Http as HttpIcon,
   Storage as ContainerIcon,
   ArrowBack as ArrowBackIcon,
+  Code as CodeIcon,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import AceEditor from "react-ace";
@@ -96,10 +97,32 @@ const ModuleDetails = () => {
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
             <Chip label={module.version} color="primary" size="small" />
             <Chip
-              label={module.runtime === "http" ? "HTTP" : "Container"}
-              color={module.runtime === "http" ? "primary" : "secondary"}
+              label={
+                module.runtime === "http"
+                  ? "HTTP"
+                  : module.runtime === "go"
+                  ? "Go"
+                  : module.runtime === "docker"
+                  ? "Container"
+                  : module.runtime?.toUpperCase() || "Unknown"
+              }
+              color={
+                module.runtime === "http"
+                  ? "primary"
+                  : module.runtime === "go"
+                  ? "success"
+                  : "secondary"
+              }
               size="small"
-              icon={module.runtime === "http" ? <HttpIcon /> : <ContainerIcon />}
+              icon={
+                module.runtime === "http" ? (
+                  <HttpIcon />
+                ) : module.runtime === "go" ? (
+                  <CodeIcon />
+                ) : (
+                  <ContainerIcon />
+                )
+              }
             />
             <Chip
               label={module.project_id || "global"}
@@ -138,12 +161,28 @@ const ModuleDetails = () => {
                   icon={
                     module.runtime === "http" ? (
                       <HttpIcon fontSize="small" />
+                    ) : module.runtime === "go" ? (
+                      <CodeIcon fontSize="small" />
                     ) : (
                       <ContainerIcon fontSize="small" />
                     )
                   }
-                  label={module.runtime === "http" ? "HTTP" : "Container"}
-                  color={module.runtime === "http" ? "primary" : "secondary"}
+                  label={
+                    module.runtime === "http"
+                      ? "HTTP"
+                      : module.runtime === "go"
+                      ? "Go"
+                      : module.runtime === "docker"
+                      ? "Container"
+                      : module.runtime?.toUpperCase() || "Unknown"
+                  }
+                  color={
+                    module.runtime === "http"
+                      ? "primary"
+                      : module.runtime === "go"
+                      ? "success"
+                      : "secondary"
+                  }
                   variant="outlined"
                 />
               </Grid>
