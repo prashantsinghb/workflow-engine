@@ -104,6 +104,32 @@ func (s *nodeStore) MarkFailed(
 	return err
 }
 
+func (s *nodeStore) MarkSkipped(
+	ctx context.Context,
+	executionID uuid.UUID,
+	nodeID string,
+	output map[string]any,
+) error {
+
+	out, _ := json.Marshal(output)
+	now := time.Now()
+
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE execution_nodes
+		SET
+			status = $3,
+			output = $4,
+			completed_at = $5,
+			duration_ms = CASE 
+				WHEN started_at IS NOT NULL THEN EXTRACT(EPOCH FROM ($5 - started_at)) * 1000
+				ELSE 0
+			END
+		WHERE execution_id = $1 AND node_id = $2
+	`, executionID, nodeID, execution.NodeSkipped, out, now)
+
+	return err
+}
+
 func (s *nodeStore) IncrementAttempt(
 	ctx context.Context,
 	executionID uuid.UUID,

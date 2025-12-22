@@ -10,4 +10,5 @@ type Node struct {
 	Depends   []string               `yaml:"depends,omitempty" json:"depends,omitempty"`
 	With      map[string]interface{} `yaml:"with,omitempty" json:"with,omitempty"`
 	Inputs    map[string]interface{} `yaml:"inputs,omitempty" json:"inputs,omitempty"`
+	When      map[string]interface{} `yaml:"when,omitempty" json:"when,omitempty"`
 }

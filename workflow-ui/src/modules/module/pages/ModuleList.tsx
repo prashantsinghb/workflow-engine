@@ -36,7 +36,6 @@ import {
   ViewModule as GridViewIcon,
   Refresh as RefreshIcon,
   Upload as UploadIcon,
-  MoreVert as MoreVertIcon,
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import { moduleApi } from "@/services/client/moduleApi";
@@ -368,8 +367,10 @@ const ModuleList = () => {
                           onClick={() =>
                             navigate(`/modules/${group.latest.name}/versions/${group.latest.version}`)
                           }
+                          title="View Details"
+                          color="primary"
                         >
-                          <MoreVertIcon />
+                          <ViewIcon />
                         </IconButton>
                       </TableCell>
                     </TableRow>

@@ -17,6 +17,7 @@ const (
 	TimelineNodeStarted   TimelineEventType = "NODE_STARTED"
 	TimelineNodeSucceeded TimelineEventType = "NODE_SUCCEEDED"
 	TimelineNodeFailed    TimelineEventType = "NODE_FAILED"
+	TimelineNodeSkipped   TimelineEventType = "NODE_SKIPPED"
 	TimelineNodeRetry     TimelineEventType = "NODE_RETRY"
 )
 

@@ -3,6 +3,7 @@ package timeline
 import (
 	"context"
 	"sort"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/prashantsinghb/workflow-engine/pkg/execution"
@@ -66,9 +67,14 @@ func (b *TimelineBuilder) Build(
 		}
 
 		if n.CompletedAt != nil {
-			eventType := TimelineNodeSucceeded
-			if n.Status == execution.NodeFailed {
+			var eventType TimelineEventType
+			switch n.Status {
+			case execution.NodeFailed:
 				eventType = TimelineNodeFailed
+			case execution.NodeSkipped:
+				eventType = TimelineNodeSkipped
+			default:
+				eventType = TimelineNodeSucceeded
 			}
 
 			timeline = append(timeline, ExecutionTimelineEvent{
@@ -77,6 +83,15 @@ func (b *TimelineBuilder) Build(
 				NodeID:     &n.NodeID,
 				DurationMs: n.DurationMs,
 				Payload:    n.Error,
+			})
+		} else if n.Status == execution.NodeSkipped {
+			// Handle skipped nodes that may not have started
+			now := time.Now()
+			timeline = append(timeline, ExecutionTimelineEvent{
+				Timestamp: now,
+				Type:      TimelineNodeSkipped,
+				NodeID:    &n.NodeID,
+				Message:   "Node skipped due to condition",
 			})
 		}
 	}

@@ -19,6 +19,7 @@ import { ExecutionState, GetExecutionResponse, ExecutionTimeline } from "@/types
 import { toast } from "react-toastify";
 import { useProject } from "@/contexts/ProjectContext";
 import { ExecutionTimeline as ExecutionTimelineComponent } from "../components/ExecutionTimeline";
+import Breadcrumbs from "@/components/atoms/Breadcrumbs";
 
 const ExecutionDetails = () => {
   const { executionId } = useParams<{ executionId: string }>();
@@ -117,12 +118,25 @@ const ExecutionDetails = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
+      <Breadcrumbs
+        items={[
+          { label: "Workflows", path: "/workflows" },
+          { label: "Executions", path: "/workflows/executions" },
+          { label: executionId?.substring(0, 8) || "Execution" },
+        ]}
+      />
+
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Execution Details
-        </Typography>
-        <Button variant="outlined" onClick={() => navigate("/workflows")}>
+        <Box>
+          <Typography variant="h4" component="h1" sx={{ mb: 1 }}>
+            Execution Details
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ fontFamily: "monospace" }}>
+            {executionId}
+          </Typography>
+        </Box>
+        <Button variant="outlined" onClick={() => navigate("/workflows/executions")}>
           Back to List
         </Button>
       </Box>
@@ -130,28 +144,35 @@ const ExecutionDetails = () => {
       <Grid container spacing={3}>
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="subtitle2" color="text.secondary">
+            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+              Execution Information
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Execution ID
                 </Typography>
-                <Typography variant="body1">{executionId}</Typography>
+                <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.875rem" }}>
+                  {executionId}
+                </Typography>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="subtitle2" color="text.secondary">
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   State
                 </Typography>
-                <Chip
-                  label={String(execution.state)}
-                  color={getStateColor(execution.state) as "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"}
-                  sx={{ mt: 0.5 }}
-                />
-                {(() => {
-                  const stateStr = String(execution.state);
-                  return (stateStr === "RUNNING" || stateStr === "PENDING") && (
-                    <CircularProgress size={16} sx={{ ml: 1 }} />
-                  );
-                })()}
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Chip
+                    label={String(execution.state)}
+                    color={getStateColor(execution.state) as "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"}
+                    size="small"
+                  />
+                  {(() => {
+                    const stateStr = String(execution.state);
+                    return (stateStr === "RUNNING" || stateStr === "PENDING") && (
+                      <CircularProgress size={16} />
+                    );
+                  })()}
+                </Box>
               </Grid>
               {execution.error && (
                 <Grid item xs={12}>

@@ -26,6 +26,9 @@ const getEventIcon = (type: string) => {
   if (type.includes("FAILED")) {
     return <Error />;
   }
+  if (type.includes("SKIPPED")) {
+    return <Schedule />;
+  }
   if (type.includes("RETRY")) {
     return <Refresh />;
   }
@@ -38,6 +41,9 @@ const getEventColor = (type: string): "primary" | "success" | "error" | "warning
   }
   if (type.includes("FAILED")) {
     return "error";
+  }
+  if (type.includes("SKIPPED")) {
+    return "warning";
   }
   if (type.includes("STARTED")) {
     return "primary";
@@ -70,6 +76,9 @@ const getEventLabel = (event: ExecutionTimelineEvent): string => {
   }
   if (event.type === "NODE_FAILED") {
     return `Node "${event.nodeId}" failed`;
+  }
+  if (event.type === "NODE_SKIPPED") {
+    return `Node "${event.nodeId}" skipped`;
   }
   if (event.type === "NODE_RETRY") {
     return `Node "${event.nodeId}" retrying`;

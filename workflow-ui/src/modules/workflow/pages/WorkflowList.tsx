@@ -20,6 +20,11 @@ import {
   Alert,
   Select,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tooltip,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import {
@@ -33,6 +38,8 @@ import {
   Refresh as RefreshIcon,
   Upload as UploadIcon,
 } from "@mui/icons-material";
+import { Formik, Form, Field } from "formik";
+import * as Yup from "yup";
 import { workflowApi } from "@/services/client/workflowApi";
 import { WorkflowInfo } from "@/types/workflow";
 import { toast } from "react-toastify";
@@ -48,6 +55,9 @@ const WorkflowList = () => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [executeDialogOpen, setExecuteDialogOpen] = useState(false);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowInfo | null>(null);
+  const [executing, setExecuting] = useState(false);
 
   const loadWorkflows = async () => {
     try {
@@ -106,6 +116,29 @@ const WorkflowList = () => {
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
   );
+
+  const handleExecuteClick = (workflow: WorkflowInfo) => {
+    setSelectedWorkflow(workflow);
+    setExecuteDialogOpen(true);
+  };
+
+  const handleExecuteClose = () => {
+    setExecuteDialogOpen(false);
+    setSelectedWorkflow(null);
+  };
+
+  const executionSchema = Yup.object({
+    clientRequestId: Yup.string().required("Client Request ID is required"),
+    inputs: Yup.string().test("valid-json", "Must be valid JSON", (value) => {
+      if (!value) return true;
+      try {
+        JSON.parse(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+  });
 
   return (
     <Box sx={{ p: 3 }}>
@@ -230,12 +263,26 @@ const WorkflowList = () => {
                         <Chip label={workflow.projectId || "default"} size="small" />
                       </TableCell>
                       <TableCell align="right">
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(`/workflows/${workflow.id}`)}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
+                        <Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end" }}>
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => navigate(`/workflows/${workflow.id}`)}
+                              color="primary"
+                            >
+                              <ViewIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Execute Workflow">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleExecuteClick(workflow)}
+                              color="success"
+                            >
+                              <PlayIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))
@@ -271,6 +318,110 @@ const WorkflowList = () => {
           </Box>
         </>
       )}
+
+      {/* Execute Workflow Dialog */}
+      <Dialog
+        open={executeDialogOpen}
+        onClose={handleExecuteClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <Formik
+          initialValues={{
+            clientRequestId: `req-${Date.now()}`,
+            inputs: "{}",
+          }}
+          validationSchema={executionSchema}
+          onSubmit={async (values, { setSubmitting }) => {
+            if (!selectedWorkflow) return;
+            
+            try {
+              setExecuting(true);
+              let inputs = {};
+              if (values.inputs && values.inputs.trim() !== "") {
+                inputs = JSON.parse(values.inputs);
+              }
+
+              const result = await workflowApi.startWorkflow({
+                projectId,
+                workflowId: selectedWorkflow.id,
+                clientRequestId: values.clientRequestId,
+                inputs,
+              });
+
+              toast.success("Workflow execution started!");
+              handleExecuteClose();
+              navigate(`/workflows/executions/${result.executionId}`);
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error ? error.message : "Failed to start workflow";
+              toast.error(errorMessage);
+            } finally {
+              setExecuting(false);
+              setSubmitting(false);
+            }
+          }}
+        >
+          {({ values, errors, touched, handleChange, isSubmitting }) => (
+            <Form>
+              <DialogTitle>
+                Execute Workflow: {selectedWorkflow?.name || selectedWorkflow?.id}
+              </DialogTitle>
+              <DialogContent>
+                <Box sx={{ pt: 2 }}>
+                  <TextField
+                    fullWidth
+                    label="Client Request ID"
+                    name="clientRequestId"
+                    value={values.clientRequestId}
+                    onChange={handleChange}
+                    error={touched.clientRequestId && !!errors.clientRequestId}
+                    helperText={touched.clientRequestId && errors.clientRequestId}
+                    margin="normal"
+                    required
+                  />
+                  <TextField
+                    fullWidth
+                    label="Inputs (JSON)"
+                    name="inputs"
+                    value={values.inputs}
+                    onChange={handleChange}
+                    error={touched.inputs && !!errors.inputs}
+                    helperText={touched.inputs && errors.inputs || "Enter JSON object for workflow inputs (optional)"}
+                    margin="normal"
+                    multiline
+                    rows={6}
+                    sx={{
+                      "& .MuiInputBase-root": {
+                        fontFamily: "monospace",
+                        fontSize: "0.875rem",
+                      },
+                    }}
+                  />
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={handleExecuteClose} disabled={executing || isSubmitting}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={executing || isSubmitting}
+                  sx={{
+                    bgcolor: "#2e7d32",
+                    "&:hover": {
+                      bgcolor: "#1b5e20",
+                    },
+                  }}
+                  startIcon={executing || isSubmitting ? <CircularProgress size={16} /> : <PlayIcon />}
+                >
+                  {executing || isSubmitting ? "Executing..." : "Execute"}
+                </Button>
+              </DialogActions>
+            </Form>
+          )}
+        </Formik>
+      </Dialog>
     </Box>
   );
 };

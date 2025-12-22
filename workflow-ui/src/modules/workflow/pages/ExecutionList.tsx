@@ -29,6 +29,7 @@ import {
   ViewList as ListViewIcon,
   ViewModule as GridViewIcon,
   Upload as UploadIcon,
+  Visibility as ViewIcon,
 } from "@mui/icons-material";
 import { ExecutionState, ExecutionInfo } from "@/types/workflow";
 import { workflowApi } from "@/services/client/workflowApi";
@@ -250,8 +251,10 @@ const ExecutionList = () => {
                         onClick={() =>
                           navigate(`/workflows/executions/${execution.id}`)
                         }
+                        title="View Details"
+                        color="primary"
                       >
-                        <MoreVertIcon />
+                        <ViewIcon />
                       </IconButton>
                     </TableCell>
                   </TableRow>

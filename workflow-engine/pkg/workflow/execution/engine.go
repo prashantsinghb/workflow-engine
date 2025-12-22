@@ -167,8 +167,8 @@ func (e *Engine) reconcile(ctx context.Context, execID uuid.UUID, graph *dag.Gra
 				log.Printf("[Engine] Skipping node due to condition: execution_id=%s, node_id=%s",
 					execID, node.NodeID)
 
-				// Mark skipped as succeeded with empty output
-				_ = e.NodeStore.MarkSucceeded(ctx, node.ExecutionID, node.NodeID, map[string]any{
+				// Mark node as skipped
+				_ = e.NodeStore.MarkSkipped(ctx, node.ExecutionID, node.NodeID, map[string]any{
 					"skipped": true,
 				})
 				progress = true
@@ -400,6 +400,9 @@ func (e *Engine) isCompleted(nodes []execution.ExecutionNode, execID uuid.UUID) 
 			return true
 		case execution.NodePending, execution.NodeRetrying:
 			allSucceeded = false
+		case execution.NodeSkipped:
+			// Skipped nodes are considered as completed for execution completion check
+			// They don't block execution completion
 		case execution.NodeRunning:
 			// Check if node has exceeded max attempts while still running (stuck state)
 			if node.Attempt >= node.MaxAttempts {
@@ -423,16 +426,16 @@ func (e *Engine) isCompleted(nodes []execution.ExecutionNode, execID uuid.UUID) 
 	}
 
 	if allSucceeded {
-		// Verify all nodes actually succeeded
+		// Verify all nodes are either succeeded or skipped (both are considered completed)
 		for _, node := range nodes {
-			if node.Status != execution.NodeSucceeded {
-				log.Printf("[Engine] Node not succeeded but execution marked complete: execution_id=%s, node_id=%s, status=%s",
+			if node.Status != execution.NodeSucceeded && node.Status != execution.NodeSkipped {
+				log.Printf("[Engine] Node not completed but execution marked complete: execution_id=%s, node_id=%s, status=%s",
 					execID, node.NodeID, node.Status)
 				return false
 			}
 		}
 
-		log.Printf("[Engine] All nodes succeeded: execution_id=%s, total_nodes=%d", execID, len(nodes))
+		log.Printf("[Engine] All nodes completed: execution_id=%s, total_nodes=%d", execID, len(nodes))
 		// Collect outputs
 		outputs := map[string]any{}
 		for _, node := range nodes {
@@ -468,14 +471,51 @@ func shouldExecute(
 
 			val := out[node.When.Key]
 
+			// Compare values, handling type conversions for string comparisons
 			if node.When.Equals != nil {
-				return val == node.When.Equals
+				equals := node.When.Equals
+				// Handle nil values
+				if val == nil && equals == nil {
+					log.Printf("[Engine] Condition check: node=%s, from_node=%s, key=%s, val=nil, equals=nil, result=true",
+						node.ID, node.When.FromNode, node.When.Key)
+					return true
+				}
+				if val == nil || equals == nil {
+					log.Printf("[Engine] Condition check: node=%s, from_node=%s, key=%s, val=%v, equals=%v, result=false (nil mismatch)",
+						node.ID, node.When.FromNode, node.When.Key, val, equals)
+					return false
+				}
+				// Convert both to strings for comparison
+				valStr := fmt.Sprintf("%v", val)
+				equalsStr := fmt.Sprintf("%v", equals)
+				result := valStr == equalsStr
+				log.Printf("[Engine] Condition check: node=%s, from_node=%s, key=%s, val=%v (%s), equals=%v (%s), result=%v",
+					node.ID, node.When.FromNode, node.When.Key, val, valStr, equals, equalsStr, result)
+				return result
 			}
 			if node.When.NotEquals != nil {
-				return val != node.When.NotEquals
+				notEquals := node.When.NotEquals
+				// Handle nil values
+				if val == nil && notEquals == nil {
+					log.Printf("[Engine] Condition check: node=%s, from_node=%s, key=%s, val=nil, not_equals=nil, result=false",
+						node.ID, node.When.FromNode, node.When.Key)
+					return false
+				}
+				if val == nil || notEquals == nil {
+					log.Printf("[Engine] Condition check: node=%s, from_node=%s, key=%s, val=%v, not_equals=%v, result=true (nil mismatch)",
+						node.ID, node.When.FromNode, node.When.Key, val, notEquals)
+					return true
+				}
+				valStr := fmt.Sprintf("%v", val)
+				notEqualsStr := fmt.Sprintf("%v", notEquals)
+				result := valStr != notEqualsStr
+				log.Printf("[Engine] Condition check: node=%s, from_node=%s, key=%s, val=%v (%s), not_equals=%v (%s), result=%v",
+					node.ID, node.When.FromNode, node.When.Key, val, valStr, notEquals, notEqualsStr, result)
+				return result
 			}
 		}
 	}
 
+	log.Printf("[Engine] Condition check failed: node=%s, from_node=%s not found or not succeeded", node.ID, node.When.FromNode)
 	return false
 }

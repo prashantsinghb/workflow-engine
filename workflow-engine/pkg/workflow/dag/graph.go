@@ -46,7 +46,7 @@ func Build(def *api.Definition) *Graph {
 	}
 
 	for id, n := range def.Nodes {
-		g.Nodes[NodeID(id)] = &Node{
+		node := &Node{
 			ID:       NodeID(id),
 			Depends:  []NodeID{},
 			Children: []NodeID{},
@@ -54,6 +54,28 @@ func Build(def *api.Definition) *Graph {
 			With:     n.With,
 			Inputs:   n.Inputs,
 		}
+
+		// Parse When condition if present
+		if n.When != nil {
+			when := &Condition{}
+			if fromNode, ok := n.When["from_node"].(string); ok {
+				when.FromNode = fromNode
+			}
+			if key, ok := n.When["key"].(string); ok {
+				when.Key = key
+			}
+			if equals, ok := n.When["equals"]; ok {
+				when.Equals = equals
+			}
+			if notEquals, ok := n.When["not_equals"]; ok {
+				when.NotEquals = notEquals
+			}
+			if when.FromNode != "" && when.Key != "" {
+				node.When = when
+			}
+		}
+
+		g.Nodes[NodeID(id)] = node
 	}
 
 	for id, n := range def.Nodes {

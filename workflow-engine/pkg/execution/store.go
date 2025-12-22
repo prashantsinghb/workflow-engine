@@ -79,6 +79,13 @@ type NodeStore interface {
 		err map[string]any,
 	) error
 
+	MarkSkipped(
+		ctx context.Context,
+		executionID uuid.UUID,
+		nodeID string,
+		output map[string]any,
+	) error
+
 	IncrementAttempt(
 		ctx context.Context,
 		executionID uuid.UUID,
