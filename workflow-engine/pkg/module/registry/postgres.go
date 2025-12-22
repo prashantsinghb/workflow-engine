@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -39,44 +38,79 @@ func (s *PostgresRegistry) Insert(ctx context.Context, m *api.Module) error {
 		projectID = "" // Keep as empty string for global modules
 	}
 
+	runtimeConfigJSON, _ := json.Marshal(m.RuntimeConfig)
+	if len(runtimeConfigJSON) == 0 || string(runtimeConfigJSON) == "null" {
+		runtimeConfigJSON = []byte("{}")
+	}
+
 	query := `
-	INSERT INTO modules (id, name, version, project_id, runtime, inputs, outputs, created_at)
-	VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+	INSERT INTO modules (id, name, version, project_id, runtime, runtime_config, inputs, outputs, created_at)
+	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 	ON CONFLICT (project_id, name, version) DO UPDATE 
-	SET runtime=$5, inputs=$6, outputs=$7
+	SET runtime=$5, runtime_config=$6, inputs=$7, outputs=$8
 	`
 
 	now := time.Now()
 	_, err := s.DB.ExecContext(ctx, query,
 		m.ID, m.Name, m.Version, projectID, m.Runtime,
-		string(inputsJSON), string(outputsJSON), now,
+		string(runtimeConfigJSON), string(inputsJSON), string(outputsJSON), now,
 	)
 	return err
 }
 
 // Lookup module (project-specific then global)
 func (s *PostgresRegistry) Get(ctx context.Context, projectID, name, version string) (*api.Module, error) {
-	query := `
-	SELECT id, name, version, project_id, runtime, inputs, outputs, created_at
-	FROM modules
-	WHERE name=$1 AND (project_id=$2 OR project_id IS NULL OR project_id = '')
-	ORDER BY CASE WHEN project_id=$2 THEN 0 ELSE 1 END, created_at DESC
-	LIMIT 1
-	`
+	var query string
+	var row *sql.Row
 
-	row := s.DB.QueryRowContext(ctx, query, name, projectID)
+	if version != "" {
+		// If version is specified, filter by it directly
+		query = `
+		SELECT id, name, version, project_id, runtime, runtime_config, inputs, outputs, created_at
+		FROM modules
+		WHERE name=$1 AND version=$2 AND (project_id=$3 OR project_id IS NULL OR project_id = '')
+		ORDER BY CASE WHEN project_id=$3 THEN 0 ELSE 1 END
+		LIMIT 1
+		`
+		row = s.DB.QueryRowContext(ctx, query, name, version, projectID)
+	} else {
+		// If version is not specified, get the latest by created_at
+		query = `
+		SELECT id, name, version, project_id, runtime, runtime_config, inputs, outputs, created_at
+		FROM modules
+		WHERE name=$1 AND (project_id=$2 OR project_id IS NULL OR project_id = '')
+		ORDER BY CASE WHEN project_id=$2 THEN 0 ELSE 1 END, created_at DESC
+		LIMIT 1
+		`
+		row = s.DB.QueryRowContext(ctx, query, name, projectID)
+	}
+
 	var m api.Module
-	var inputsJSON, outputsJSON string
-	if err := row.Scan(&m.ID, &m.Name, &m.Version, &m.ProjectID, &m.Runtime, &inputsJSON, &outputsJSON, &m.CreatedAt); err != nil {
+	var runtimeConfigJSON, inputsJSON, outputsJSON sql.NullString
+	if err := row.Scan(&m.ID, &m.Name, &m.Version, &m.ProjectID, &m.Runtime, &runtimeConfigJSON, &inputsJSON, &outputsJSON, &m.CreatedAt); err != nil {
 		return nil, err
 	}
 	m.UpdatedAt = m.CreatedAt // Use created_at as updated_at since column doesn't exist
 
-	json.Unmarshal([]byte(inputsJSON), &m.Inputs)
-	json.Unmarshal([]byte(outputsJSON), &m.Outputs)
-
-	if version != "" && m.Version != version {
-		return nil, fmt.Errorf("module version not found")
+	if runtimeConfigJSON.Valid && runtimeConfigJSON.String != "" && runtimeConfigJSON.String != "null" {
+		if err := json.Unmarshal([]byte(runtimeConfigJSON.String), &m.RuntimeConfig); err != nil {
+			m.RuntimeConfig = make(map[string]interface{})
+		}
+		if m.RuntimeConfig == nil {
+			m.RuntimeConfig = make(map[string]interface{})
+		}
+	} else {
+		m.RuntimeConfig = make(map[string]interface{})
+	}
+	if inputsJSON.Valid && inputsJSON.String != "" {
+		json.Unmarshal([]byte(inputsJSON.String), &m.Inputs)
+	} else {
+		m.Inputs = make(map[string]interface{})
+	}
+	if outputsJSON.Valid && outputsJSON.String != "" {
+		json.Unmarshal([]byte(outputsJSON.String), &m.Outputs)
+	} else {
+		m.Outputs = make(map[string]interface{})
 	}
 
 	return &m, nil
@@ -85,7 +119,7 @@ func (s *PostgresRegistry) Get(ctx context.Context, projectID, name, version str
 // List modules (global + project)
 func (s *PostgresRegistry) List(ctx context.Context, projectID string) ([]*api.Module, error) {
 	query := `
-	SELECT id, name, version, project_id, runtime, inputs, outputs, created_at
+	SELECT id, name, version, project_id, runtime, runtime_config, inputs, outputs, created_at
 	FROM modules
 	WHERE project_id=$1 OR project_id IS NULL OR project_id = ''
 	ORDER BY name, version
@@ -100,13 +134,31 @@ func (s *PostgresRegistry) List(ctx context.Context, projectID string) ([]*api.M
 	var modules []*api.Module
 	for rows.Next() {
 		var m api.Module
-		var inputsJSON, outputsJSON string
-		if err := rows.Scan(&m.ID, &m.Name, &m.Version, &m.ProjectID, &m.Runtime, &inputsJSON, &outputsJSON, &m.CreatedAt); err != nil {
+		var runtimeConfigJSON, inputsJSON, outputsJSON sql.NullString
+		if err := rows.Scan(&m.ID, &m.Name, &m.Version, &m.ProjectID, &m.Runtime, &runtimeConfigJSON, &inputsJSON, &outputsJSON, &m.CreatedAt); err != nil {
 			return nil, err
 		}
 		m.UpdatedAt = m.CreatedAt // Use created_at as updated_at since column doesn't exist
-		json.Unmarshal([]byte(inputsJSON), &m.Inputs)
-		json.Unmarshal([]byte(outputsJSON), &m.Outputs)
+		if runtimeConfigJSON.Valid && runtimeConfigJSON.String != "" && runtimeConfigJSON.String != "null" {
+			if err := json.Unmarshal([]byte(runtimeConfigJSON.String), &m.RuntimeConfig); err != nil {
+				m.RuntimeConfig = make(map[string]interface{})
+			}
+			if m.RuntimeConfig == nil {
+				m.RuntimeConfig = make(map[string]interface{})
+			}
+		} else {
+			m.RuntimeConfig = make(map[string]interface{})
+		}
+		if inputsJSON.Valid && inputsJSON.String != "" {
+			json.Unmarshal([]byte(inputsJSON.String), &m.Inputs)
+		} else {
+			m.Inputs = make(map[string]interface{})
+		}
+		if outputsJSON.Valid && outputsJSON.String != "" {
+			json.Unmarshal([]byte(outputsJSON.String), &m.Outputs)
+		} else {
+			m.Outputs = make(map[string]interface{})
+		}
 		modules = append(modules, &m)
 	}
 	return modules, nil

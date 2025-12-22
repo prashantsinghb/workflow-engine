@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -17,6 +17,9 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import {
@@ -26,6 +29,7 @@ import {
   Http as HttpIcon,
   Storage as ContainerIcon,
   Code as CodeIcon,
+  ExpandMore as ExpandMoreIcon,
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import { moduleApi } from "@/services/client/moduleApi";
@@ -64,13 +68,75 @@ const ModuleList = () => {
       (module.container_registry?.image?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // Compare versions (handles semantic versioning like v1, v2, v1.0, v1.0.1, etc.)
+  const compareVersions = (a: string, b: string): number => {
+    // Remove 'v' prefix if present
+    const normalize = (v: string) => v.replace(/^v/i, "");
+    const aNorm = normalize(a);
+    const bNorm = normalize(b);
+
+    // Split by dots and compare numerically
+    const aParts = aNorm.split(".").map((p) => parseInt(p, 10) || 0);
+    const bParts = bNorm.split(".").map((p) => parseInt(p, 10) || 0);
+
+    const maxLength = Math.max(aParts.length, bParts.length);
+    for (let i = 0; i < maxLength; i++) {
+      const aPart = aParts[i] || 0;
+      const bPart = bParts[i] || 0;
+      if (aPart > bPart) return -1; // a is newer
+      if (aPart < bPart) return 1; // b is newer
+    }
+    return 0; // equal
+  };
+
+  // Group modules by name and sort versions
+  const groupedModules = useMemo(() => {
+    const groups = new Map<string, Module[]>();
+    filteredModules.forEach((module) => {
+      const name = module.name || "";
+      if (!groups.has(name)) {
+        groups.set(name, []);
+      }
+      groups.get(name)!.push(module);
+    });
+
+    // Sort each group by version (latest first)
+    groups.forEach((moduleList) => {
+      moduleList.sort((a, b) => compareVersions(a.version || "", b.version || ""));
+    });
+
+    return Array.from(groups.entries()).map(([name, moduleList]) => ({
+      name,
+      latest: moduleList[0],
+      others: moduleList.slice(1),
+    }));
+  }, [filteredModules]);
+
+  const getRuntimeConfig = (module: Module): Record<string, unknown> | undefined => {
+    return module.runtime_config || (module as any).runtimeConfig;
+  };
+
   const getModuleUrl = (module: Module): string => {
     if (module.runtime === "http" && module.http) {
       return module.http.url;
     } else if (module.runtime === "docker" && module.container_registry) {
       return module.container_registry.image;
+    } else {
+      const runtimeConfig = getRuntimeConfig(module);
+      if (runtimeConfig?.endpoint) {
+        // For grpc/go modules, show endpoint from runtime_config
+        return String(runtimeConfig.endpoint);
+      }
     }
     return "N/A";
+  };
+
+  const getModuleEndpoint = (module: Module): string | null => {
+    const runtimeConfig = getRuntimeConfig(module);
+    if (runtimeConfig?.endpoint) {
+      return String(runtimeConfig.endpoint);
+    }
+    return null;
   };
 
   if (loading) {
@@ -151,13 +217,13 @@ const ModuleList = () => {
                 <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Version</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Runtime</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>URL/Image</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>URL/Image/Endpoint</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Project</TableCell>
                 <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredModules.length === 0 ? (
+              {groupedModules.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                     <Typography variant="body2" color="text.secondary">
@@ -166,15 +232,154 @@ const ModuleList = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredModules.map((module) => (
+                groupedModules.map((group) => (
+                  <React.Fragment key={group.name}>
+                    {/* Latest version - always visible */}
+                    <TableRow hover>
+                      <TableCell>
+                        <Typography variant="body1" fontWeight="medium">
+                          {group.name}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          <Chip
+                            label={group.latest.version}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                          {group.others.length > 0 && (
+                            <Chip
+                              label="Latest"
+                              size="small"
+                              color="success"
+                              sx={{ fontSize: "0.65rem", height: "18px" }}
+                            />
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          icon={
+                            group.latest.runtime === "http" ? (
+                              <HttpIcon fontSize="small" />
+                            ) : group.latest.runtime === "go" ? (
+                              <CodeIcon fontSize="small" />
+                            ) : (
+                              <ContainerIcon fontSize="small" />
+                            )
+                          }
+                          label={
+                            group.latest.runtime === "http"
+                              ? "HTTP"
+                              : group.latest.runtime === "go"
+                              ? "Go"
+                              : group.latest.runtime === "docker"
+                              ? "Container"
+                              : group.latest.runtime?.toUpperCase() || "Unknown"
+                          }
+                          size="small"
+                          color={
+                            group.latest.runtime === "http"
+                              ? "primary"
+                              : group.latest.runtime === "go"
+                              ? "success"
+                              : "secondary"
+                          }
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Box>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontFamily: "monospace",
+                              fontSize: "0.75rem",
+                              maxWidth: 300,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                            title={getModuleUrl(group.latest)}
+                          >
+                            {getModuleUrl(group.latest)}
+                          </Typography>
+                          {(() => {
+                            const runtimeConfig = getRuntimeConfig(group.latest);
+                            return runtimeConfig?.endpoint && (
+                              <Chip
+                                label={
+                                  runtimeConfig?.protocol
+                                    ? `${String(runtimeConfig.protocol).toUpperCase()}: ${String(runtimeConfig.endpoint)}`
+                                    : String(runtimeConfig.endpoint)
+                                }
+                                size="small"
+                                variant="outlined"
+                                sx={{ mt: 0.5, fontSize: "0.65rem", height: "20px" }}
+                              />
+                            );
+                          })()}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={group.latest.project_id || "global"}
+                          size="small"
+                          color={group.latest.project_id ? "default" : "info"}
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            navigate(`/modules/${group.latest.name}/versions/${group.latest.version}`)
+                          }
+                          title="View Details"
+                          color="primary"
+                        >
+                          <ViewIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                    {/* Other versions in accordion */}
+                    {group.others.length > 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} sx={{ p: 0, border: "none" }}>
+                          <Accordion
+                            elevation={0}
+                            sx={{
+                              "&:before": { display: "none" },
+                              bgcolor: "background.default",
+                            }}
+                          >
+                            <AccordionSummary
+                              expandIcon={<ExpandMoreIcon />}
+                              sx={{ px: 2, py: 0.5, minHeight: "auto" }}
+                            >
+                              <Typography variant="body2" color="text.secondary">
+                                {group.others.length} older version{group.others.length > 1 ? "s" : ""}
+                              </Typography>
+                            </AccordionSummary>
+                            <AccordionDetails sx={{ p: 0 }}>
+                              <Table size="small">
+                                <TableBody>
+                                  {group.others.map((module) => (
                   <TableRow key={`${module.name}-${module.version}`} hover>
                     <TableCell>
-                      <Typography variant="body1" fontWeight="medium">
+                                        <Typography variant="body2" color="text.secondary">
                         {module.name}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip label={module.version} size="small" color="primary" variant="outlined" />
+                                        <Chip
+                                          label={module.version}
+                                          size="small"
+                                          color="default"
+                                          variant="outlined"
+                                        />
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -208,6 +413,7 @@ const ModuleList = () => {
                       />
                     </TableCell>
                     <TableCell>
+                                        <Box>
                       <Typography
                         variant="body2"
                         sx={{
@@ -222,6 +428,22 @@ const ModuleList = () => {
                       >
                         {getModuleUrl(module)}
                       </Typography>
+                      {(() => {
+                        const runtimeConfig = getRuntimeConfig(module);
+                        return runtimeConfig?.endpoint && (
+                          <Chip
+                            label={
+                              runtimeConfig?.protocol
+                                ? `${String(runtimeConfig.protocol).toUpperCase()}: ${String(runtimeConfig.endpoint)}`
+                                : String(runtimeConfig.endpoint)
+                            }
+                            size="small"
+                            variant="outlined"
+                            sx={{ mt: 0.5, fontSize: "0.65rem", height: "20px" }}
+                          />
+                        );
+                      })()}
+                                        </Box>
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -234,7 +456,9 @@ const ModuleList = () => {
                     <TableCell align="right">
                       <IconButton
                         size="small"
-                        onClick={() => navigate(`/modules/${module.name}/versions/${module.version}`)}
+                                          onClick={() =>
+                                            navigate(`/modules/${module.name}/versions/${module.version}`)
+                                          }
                         title="View Details"
                         color="primary"
                       >
@@ -242,6 +466,15 @@ const ModuleList = () => {
                       </IconButton>
                     </TableCell>
                   </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </AccordionDetails>
+                          </Accordion>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                 ))
               )}
             </TableBody>

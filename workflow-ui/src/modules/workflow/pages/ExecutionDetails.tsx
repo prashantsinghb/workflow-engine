@@ -30,15 +30,17 @@ const ExecutionDetails = () => {
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [polling, setPolling] = useState(false);
 
-  const getStateColor = (state: ExecutionState) => {
-    switch (state) {
-      case ExecutionState.SUCCESS:
+  const getStateColor = (state: ExecutionState | string) => {
+    const stateStr = String(state).toUpperCase();
+    switch (stateStr) {
+      case "SUCCESS":
+      case "SUCCEEDED":
         return "success";
-      case ExecutionState.FAILED:
+      case "FAILED":
         return "error";
-      case ExecutionState.RUNNING:
+      case "RUNNING":
         return "info";
-      case ExecutionState.PENDING:
+      case "PENDING":
         return "warning";
       default:
         return "default";
@@ -67,8 +69,9 @@ const ExecutionDetails = () => {
       // Fetch timeline
       fetchTimeline();
 
-      // Auto-poll if still running
-      if (result.state === ExecutionState.RUNNING || result.state === ExecutionState.PENDING) {
+            // Auto-poll if still running
+      const stateStr = String(result.state);
+      if (stateStr === "RUNNING" || stateStr === "PENDING") {
         if (!polling) {
           setPolling(true);
           const interval = setInterval(async () => {
@@ -76,7 +79,8 @@ const ExecutionDetails = () => {
             setExecution(updated);
             // Refresh timeline on each poll
             fetchTimeline();
-            if (updated.state === ExecutionState.SUCCESS || updated.state === ExecutionState.FAILED) {
+            const updatedStateStr = String(updated.state);
+            if (updatedStateStr === "SUCCESS" || updatedStateStr === "SUCCEEDED" || updatedStateStr === "FAILED") {
               clearInterval(interval);
               setPolling(false);
             }
@@ -138,13 +142,16 @@ const ExecutionDetails = () => {
                   State
                 </Typography>
                 <Chip
-                  label={execution.state}
+                  label={String(execution.state)}
                   color={getStateColor(execution.state) as "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"}
                   sx={{ mt: 0.5 }}
                 />
-                {(execution.state === ExecutionState.RUNNING || execution.state === ExecutionState.PENDING) && (
-                  <CircularProgress size={16} sx={{ ml: 1 }} />
-                )}
+                {(() => {
+                  const stateStr = String(execution.state);
+                  return (stateStr === "RUNNING" || stateStr === "PENDING") && (
+                    <CircularProgress size={16} sx={{ ml: 1 }} />
+                  );
+                })()}
               </Grid>
               {execution.error && (
                 <Grid item xs={12}>

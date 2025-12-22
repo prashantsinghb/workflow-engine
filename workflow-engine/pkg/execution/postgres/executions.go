@@ -26,11 +26,10 @@ func (s *executionStore) Create(ctx context.Context, e *execution.Execution) err
 			project_id,
 			workflow_id,
 			client_request_id,
-			temporal_workflow_id,
 			state,
 			inputs
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7)
+		VALUES ($1,$2,$3,$4,$5,$6)
 		ON CONFLICT (project_id, workflow_id, client_request_id)
 		DO NOTHING
 	`,
@@ -38,7 +37,6 @@ func (s *executionStore) Create(ctx context.Context, e *execution.Execution) err
 		e.ProjectID,
 		e.WorkflowID,
 		e.ClientRequestID,
-		e.TemporalWorkflowID,
 		execution.ExecutionPending,
 		inputs,
 	)
@@ -55,7 +53,6 @@ func (s *executionStore) Get(
 		SELECT
 			id, project_id, workflow_id,
 			client_request_id,
-			temporal_workflow_id, temporal_run_id,
 			state, error,
 			inputs, outputs,
 			started_at, completed_at,
@@ -76,7 +73,6 @@ func (s *executionStore) GetByIdempotencyKey(
 		SELECT
 			id, project_id, workflow_id,
 			client_request_id,
-			temporal_workflow_id, temporal_run_id,
 			state, error,
 			inputs, outputs,
 			started_at, completed_at,
@@ -164,7 +160,6 @@ func (s *executionStore) List(
 		SELECT
 			id, project_id, workflow_id,
 			client_request_id,
-			temporal_workflow_id, temporal_run_id,
 			state, error,
 			inputs, outputs,
 			started_at, completed_at,
@@ -203,7 +198,6 @@ func (s *executionStore) ListRunning(ctx context.Context) ([]*execution.Executio
 		SELECT
 			id, project_id, workflow_id,
 			client_request_id,
-			temporal_workflow_id, temporal_run_id,
 			state,
 			started_at,
 			created_at, updated_at
@@ -255,7 +249,6 @@ func scanExecution(row interface {
 
 	var e execution.Execution
 	var inputs, outputs, errJSON []byte
-	var runID sql.NullString
 	var startedAt, completedAt sql.NullTime
 
 	err := row.Scan(
@@ -263,8 +256,6 @@ func scanExecution(row interface {
 		&e.ProjectID,
 		&e.WorkflowID,
 		&e.ClientRequestID,
-		&e.TemporalWorkflowID,
-		&runID,
 		&e.Status,
 		&errJSON,
 		&inputs,
@@ -278,9 +269,6 @@ func scanExecution(row interface {
 		return nil, err
 	}
 
-	if runID.Valid {
-		e.TemporalRunID = runID.String
-	}
 	if startedAt.Valid {
 		e.StartedAt = &startedAt.Time
 	}

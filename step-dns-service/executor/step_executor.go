@@ -35,7 +35,7 @@ func RegisterStep() {
 		Steps: []*pb.StepSpec{
 			{
 				Name:     "dns.create",
-				Version:  "v1",
+				Version:  "v4",
 				Protocol: "grpc",
 				Endpoint: "localhost:7070",
 				InputSchema: map[string]string{

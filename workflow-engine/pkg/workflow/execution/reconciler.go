@@ -12,14 +12,10 @@ func Reconcile(ctx context.Context, executionContext *Context) {
 		return
 	}
 
+	// TODO: Reconcile running executions with Temporal if needed
+	// This requires Temporal workflow IDs to be stored, which are currently removed
 	for _, e := range execs {
-		we := executionContext.Temporal.GetWorkflow(ctx, e.TemporalWorkflowID, "")
-		var status string
-		err := we.Get(ctx, &status)
-		if err != nil {
-			executionContext.Store.Executions().MarkFailed(ctx, e.ID, map[string]any{"message": err.Error()})
-		} else if status == "COMPLETED" {
-			executionContext.Store.Executions().MarkCompleted(ctx, e.ID, nil)
-		}
+		// Skip reconciliation for now since TemporalWorkflowID is removed
+		_ = e
 	}
 }

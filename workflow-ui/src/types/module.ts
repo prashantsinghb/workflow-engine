@@ -45,11 +45,12 @@ export interface Module {
   project_id?: string;
   name: string;
   version: string;
-  runtime: string; // "http" | "docker"
+  runtime: string; // "http" | "docker" | "grpc" | "go"
   http?: HttpModuleSpec;
   container_registry?: ContainerRegistryModuleSpec;
   inputs?: Record<string, unknown>;
   outputs?: Record<string, unknown>;
+  runtime_config?: Record<string, unknown>; // Contains endpoint, protocol, service for remote modules
 }
 
 export interface RegisterModuleRequest {

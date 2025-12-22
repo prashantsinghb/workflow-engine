@@ -38,9 +38,6 @@ type Execution struct {
 	ClientRequestID string
 	TriggerType     string
 
-	TemporalWorkflowID string
-	TemporalRunID      string
-
 	Status ExecutionStatus
 
 	Inputs  map[string]any

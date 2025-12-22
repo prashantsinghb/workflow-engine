@@ -83,12 +83,20 @@ func (s *ModuleServer) GetModule(
 	inputs, _ := structpb.NewStruct(m.Inputs)
 	outputs, _ := structpb.NewStruct(m.Outputs)
 
+	var runtimeConfig *structpb.Struct
+	if len(m.RuntimeConfig) > 0 {
+		runtimeConfig, _ = structpb.NewStruct(m.RuntimeConfig)
+	}
+
 	serviceModule := &service.Module{
 		Id:        m.ID,
 		ProjectId: m.ProjectID,
 		Name:      m.Name,
 		Version:   m.Version,
 		Runtime:   m.Runtime,
+	}
+	if runtimeConfig != nil {
+		serviceModule.RuntimeConfig = runtimeConfig
 	}
 
 	// Load spec from appropriate table
@@ -152,12 +160,20 @@ func (s *ModuleServer) ListModules(
 		inputs, _ := structpb.NewStruct(m.Inputs)
 		outputs, _ := structpb.NewStruct(m.Outputs)
 
+		var runtimeConfig *structpb.Struct
+		if len(m.RuntimeConfig) > 0 {
+			runtimeConfig, _ = structpb.NewStruct(m.RuntimeConfig)
+		}
+
 		serviceModule := &service.Module{
 			Id:        m.ID,
 			ProjectId: m.ProjectID,
 			Name:      m.Name,
 			Version:   m.Version,
 			Runtime:   m.Runtime,
+		}
+		if runtimeConfig != nil {
+			serviceModule.RuntimeConfig = runtimeConfig
 		}
 
 		// Load spec from appropriate table

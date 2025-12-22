@@ -40,15 +40,28 @@ func (s *StepRegistryServer) RegisterSteps(ctx context.Context, req *pb.Register
 			return &pb.RegisterStepsResponse{Success: false, Message: err.Error()}, nil
 		}
 
+		// Convert input/output schemas from map[string]string to map[string]interface{}
+		inputs := make(map[string]interface{}, len(step.InputSchema))
+		for k, v := range step.InputSchema {
+			inputs[k] = v
+		}
+
+		outputs := make(map[string]interface{}, len(step.OutputSchema))
+		for k, v := range step.OutputSchema {
+			outputs[k] = v
+		}
+
 		mod := &api.Module{
 			ID:      uuid.New().String(),
 			Name:    step.Name,
 			Version: step.Version,
 			Runtime: step.Protocol,
-			Inputs:  map[string]interface{}{},
-			Outputs: map[string]interface{}{},
+			Inputs:  inputs,
+			Outputs: outputs,
 			RuntimeConfig: map[string]interface{}{
 				"endpoint": step.Endpoint,
+				"protocol": step.Protocol,
+				"service":  req.Service,
 			},
 		}
 

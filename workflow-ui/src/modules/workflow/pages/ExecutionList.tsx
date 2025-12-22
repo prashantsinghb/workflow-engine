@@ -78,8 +78,11 @@ const ExecutionList = () => {
 
   const normalizeState = (state: string): ExecutionState => {
     const upperState = state.toUpperCase();
-    if (upperState === "SUCCESS" || upperState === "SUCCEEDED") {
+    if (upperState === "SUCCESS") {
       return ExecutionState.SUCCESS;
+    }
+    if (upperState === "SUCCEEDED") {
+      return ExecutionState.SUCCEEDED;
     }
     if (upperState === "FAILED") {
       return ExecutionState.FAILED;
@@ -98,8 +101,12 @@ const ExecutionList = () => {
       execution.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       execution.workflowId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       execution.workflowName?.toLowerCase().includes(searchTerm.toLowerCase());
+    const normalizedState = normalizeState(execution.state);
     const matchesStatus =
-      statusFilter === "all" || normalizeState(execution.state) === statusFilter;
+      statusFilter === "all" ||
+      normalizedState === statusFilter ||
+      (statusFilter === ExecutionState.SUCCESS && normalizedState === ExecutionState.SUCCEEDED) ||
+      (statusFilter === ExecutionState.SUCCEEDED && normalizedState === ExecutionState.SUCCESS);
     return matchesSearch && matchesStatus;
   });
 
@@ -146,6 +153,7 @@ const ExecutionList = () => {
               <MenuItem value={ExecutionState.PENDING}>Pending</MenuItem>
               <MenuItem value={ExecutionState.RUNNING}>Running</MenuItem>
               <MenuItem value={ExecutionState.SUCCESS}>Success</MenuItem>
+              <MenuItem value={ExecutionState.SUCCEEDED}>Succeeded</MenuItem>
               <MenuItem value={ExecutionState.FAILED}>Failed</MenuItem>
             </Select>
           </FormControl>

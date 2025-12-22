@@ -64,7 +64,8 @@ export enum ExecutionState {
   EXECUTION_STATE_UNSPECIFIED = "EXECUTION_STATE_UNSPECIFIED",
   PENDING = "PENDING",
   RUNNING = "RUNNING",
-  SUCCESS = "SUCCESS",
+  SUCCESS = "SUCCESS", // From GetExecution enum
+  SUCCEEDED = "SUCCEEDED", // From ListExecutions string
   FAILED = "FAILED",
 }
 

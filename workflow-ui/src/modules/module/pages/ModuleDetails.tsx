@@ -206,6 +206,61 @@ const ModuleDetails = () => {
           </Paper>
         </Grid>
 
+        {/* Runtime Config (for grpc/go modules) */}
+        {(module.runtime_config || (module as any).runtimeConfig) && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3 }} elevation={2}>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                Runtime Configuration
+              </Typography>
+              <Grid container spacing={3}>
+                {(() => {
+                  const runtimeConfig = module.runtime_config || (module as any).runtimeConfig || {};
+                  return (
+                    <>
+                      {runtimeConfig.endpoint && (
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                            Endpoint
+                          </Typography>
+                          <Typography variant="body1" sx={{ fontFamily: "monospace", wordBreak: "break-all", fontWeight: 500 }}>
+                            {String(runtimeConfig.endpoint)}
+                          </Typography>
+                        </Grid>
+                      )}
+                      {runtimeConfig.service && (
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                            Service
+                          </Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                            {String(runtimeConfig.service)}
+                          </Typography>
+                        </Grid>
+                      )}
+                      {runtimeConfig.protocol && (
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                            Protocol
+                          </Typography>
+                          <Chip label={String(runtimeConfig.protocol).toUpperCase()} size="small" color="primary" />
+                        </Grid>
+                      )}
+                      {(!runtimeConfig.endpoint && !runtimeConfig.service && !runtimeConfig.protocol) && (
+                        <Grid item xs={12}>
+                          <Typography variant="body2" color="text.secondary">
+                            No runtime configuration available
+                          </Typography>
+                        </Grid>
+                      )}
+                    </>
+                  );
+                })()}
+              </Grid>
+            </Paper>
+          </Grid>
+        )}
+
         {/* Runtime Configuration */}
         {module.runtime === "http" && module.http && (
           <Grid item xs={12}>
