@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { workflowApi } from "@/services/client/workflowApi";
 import { toast } from "react-toastify";
 import { useProject } from "@/contexts/ProjectContext";
+import Breadcrumbs from "@/components/atoms/Breadcrumbs";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -94,11 +95,12 @@ const Dashboard = () => {
   }
 
   return (
-    <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
+    <Box sx={{ p: 3 }}>
+      <Breadcrumbs items={[{ label: "Dashboard" }]} />
+      <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 0.5 }}>
         Dashboard
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
         Overview of your workflow engine
       </Typography>
 

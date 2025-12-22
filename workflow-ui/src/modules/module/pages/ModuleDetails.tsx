@@ -27,6 +27,7 @@ import { moduleApi } from "@/services/client/moduleApi";
 import { toast } from "react-toastify";
 import type { Module } from "@/types/module";
 import { useProject } from "@/contexts/ProjectContext";
+import Breadcrumbs from "@/components/atoms/Breadcrumbs";
 
 const ModuleDetails = () => {
   const { name, version } = useParams<{ name: string; version: string }>();
@@ -73,9 +74,10 @@ const ModuleDetails = () => {
 
   if (error || !module) {
     return (
-      <Box>
+      <Box sx={{ p: 3 }}>
+        <Breadcrumbs items={[{ label: "Dashboard", path: "/" }, { label: "Modules", path: "/modules" }, { label: "Module Details" }]} />
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-          <Typography variant="h4" component="h1">
+          <Typography variant="h4" component="h1" sx={{ fontWeight: 600 }}>
             Module Details
           </Typography>
           <Button variant="outlined" onClick={() => navigate("/modules")} startIcon={<ArrowBackIcon />}>
@@ -88,7 +90,8 @@ const ModuleDetails = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
+      <Breadcrumbs items={[{ label: "Dashboard", path: "/" }, { label: "Modules", path: "/modules" }, { label: module.name || "Module Details" }]} />
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 4 }}>
         <Box>
           <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 0.5 }}>

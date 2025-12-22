@@ -18,6 +18,7 @@ import "ace-builds/src-noconflict/theme-github";
 import { workflowApi } from "@/services/client/workflowApi";
 import { toast } from "react-toastify";
 import { useProject } from "@/contexts/ProjectContext";
+import Breadcrumbs from "@/components/atoms/Breadcrumbs";
 
 const defaultYaml = `nodes:
   step1:
@@ -75,9 +76,13 @@ const WorkflowCreate = () => {
   };
 
   return (
-    <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
+    <Box sx={{ p: 3 }}>
+      <Breadcrumbs items={[{ label: "Dashboard", path: "/" }, { label: "Workflows", path: "/workflows" }, { label: "Create Workflow" }]} />
+      <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 0.5 }}>
         Create Workflow
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+        Define a new workflow using YAML format
       </Typography>
 
       <Formik
@@ -225,6 +230,14 @@ const WorkflowCreate = () => {
                     variant="contained"
                     type="submit"
                     disabled={isSubmitting}
+                    sx={{
+                      backgroundColor: "#2e7d32",
+                      color: "#ffffff",
+                      textTransform: "none",
+                      "&:hover": {
+                        backgroundColor: "#1b5e20",
+                      },
+                    }}
                   >
                     {isSubmitting ? <CircularProgress size={20} /> : "Create Workflow"}
                   </Button>

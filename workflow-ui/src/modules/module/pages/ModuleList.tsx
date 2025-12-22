@@ -20,6 +20,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import {
@@ -30,11 +32,17 @@ import {
   Storage as ContainerIcon,
   Code as CodeIcon,
   ExpandMore as ExpandMoreIcon,
+  ViewList as ListViewIcon,
+  ViewModule as GridViewIcon,
+  Refresh as RefreshIcon,
+  Upload as UploadIcon,
+  MoreVert as MoreVertIcon,
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import { moduleApi } from "@/services/client/moduleApi";
 import type { Module } from "@/types/module";
 import { useProject } from "@/contexts/ProjectContext";
+import Breadcrumbs from "@/components/atoms/Breadcrumbs";
 
 const ModuleList = () => {
   const navigate = useNavigate();
@@ -148,32 +156,42 @@ const ModuleList = () => {
   }
 
   return (
-    <Box>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 4 }}>
+    <Box sx={{ p: 3 }}>
+      <Breadcrumbs items={[{ label: "Dashboard", path: "/" }, { label: "Modules" }]} />
+      
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
         <Box>
           <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 0.5 }}>
             Modules
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Manage your reusable workflow modules
+              Modules is a logical grouping of resources used to manage one or multiple applications.
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate("/modules/create")}
-          size="large"
-        >
-          Create Module
-        </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate("/modules/create")}
+            sx={{
+              backgroundColor: "#2e7d32",
+              color: "#ffffff",
+              textTransform: "none",
+              "&:hover": {
+                backgroundColor: "#1b5e20",
+              },
+            }}
+          >
+            Create Module
+          </Button>
+        </Box>
       </Box>
 
       {modules.length > 0 && (
-        <Paper sx={{ p: 2, mb: 3, elevation: 2 }}>
+        <Box sx={{ display: "flex", gap: 2, mb: 2, alignItems: "center" }}>
           <TextField
-            placeholder="Search modules by name, runtime, or URL..."
-            size="medium"
-            fullWidth
+            placeholder="Search"
+            size="small"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{
@@ -183,8 +201,21 @@ const ModuleList = () => {
                 </InputAdornment>
               ),
             }}
+            sx={{ flexGrow: 1, maxWidth: 400 }}
           />
-        </Paper>
+          <IconButton>
+            <ListViewIcon />
+          </IconButton>
+          <IconButton>
+            <UploadIcon />
+          </IconButton>
+          <IconButton>
+            <GridViewIcon />
+          </IconButton>
+          <IconButton onClick={loadModules}>
+            <RefreshIcon />
+          </IconButton>
+        </Box>
       )}
 
       {modules.length === 0 ? (
@@ -210,16 +241,16 @@ const ModuleList = () => {
           </CardContent>
         </Card>
       ) : (
-        <TableContainer component={Paper} elevation={2}>
+        <TableContainer component={Paper} sx={{ boxShadow: "none", border: "1px solid #e0e0e0" }}>
           <Table>
             <TableHead>
-              <TableRow sx={{ bgcolor: "background.default" }}>
+              <TableRow sx={{ backgroundColor: "#fafafa" }}>
                 <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Version</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Runtime</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>URL/Image/Endpoint</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Project</TableCell>
-                <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 100 }} align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -337,10 +368,8 @@ const ModuleList = () => {
                           onClick={() =>
                             navigate(`/modules/${group.latest.name}/versions/${group.latest.version}`)
                           }
-                          title="View Details"
-                          color="primary"
                         >
-                          <ViewIcon />
+                          <MoreVertIcon />
                         </IconButton>
                       </TableCell>
                     </TableRow>

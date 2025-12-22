@@ -24,13 +24,17 @@ import {
 import { useNavigate } from "react-router-dom";
 import {
   Search as SearchIcon,
-  Visibility as ViewIcon,
+  MoreVert as MoreVertIcon,
   Refresh as RefreshIcon,
+  ViewList as ListViewIcon,
+  ViewModule as GridViewIcon,
+  Upload as UploadIcon,
 } from "@mui/icons-material";
 import { ExecutionState, ExecutionInfo } from "@/types/workflow";
 import { workflowApi } from "@/services/client/workflowApi";
 import { toast } from "react-toastify";
 import { useProject } from "@/contexts/ProjectContext";
+import Breadcrumbs from "@/components/atoms/Breadcrumbs";
 
 const ExecutionList = () => {
   const navigate = useNavigate();
@@ -111,54 +115,65 @@ const ExecutionList = () => {
   });
 
   return (
-    <Box>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Executions
-        </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={fetchExecutions}
-          disabled={loading}
-        >
-          Refresh
-        </Button>
+    <Box sx={{ p: 3 }}>
+      <Breadcrumbs items={[{ label: "Dashboard", path: "/" }, { label: "Executions" }]} />
+      
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
+          <Box>
+            <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 0.5 }}>
+              Executions
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              View and manage workflow execution history
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-          <TextField
-            placeholder="Search executions..."
-            size="small"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ flexGrow: 1, minWidth: 200 }}
-          />
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={statusFilter}
-              label="Status"
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <MenuItem value="all">All</MenuItem>
-              <MenuItem value={ExecutionState.PENDING}>Pending</MenuItem>
-              <MenuItem value={ExecutionState.RUNNING}>Running</MenuItem>
-              <MenuItem value={ExecutionState.SUCCESS}>Success</MenuItem>
-              <MenuItem value={ExecutionState.SUCCEEDED}>Succeeded</MenuItem>
-              <MenuItem value={ExecutionState.FAILED}>Failed</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-      </Paper>
+      <Box sx={{ display: "flex", gap: 2, mb: 2, alignItems: "center", flexWrap: "wrap" }}>
+        <TextField
+          placeholder="Search"
+          size="small"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ flexGrow: 1, maxWidth: 400 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>State</InputLabel>
+          <Select
+            value={statusFilter}
+            label="State"
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value={ExecutionState.PENDING}>Pending</MenuItem>
+            <MenuItem value={ExecutionState.RUNNING}>Running</MenuItem>
+            <MenuItem value={ExecutionState.SUCCESS}>Success</MenuItem>
+            <MenuItem value={ExecutionState.SUCCEEDED}>Succeeded</MenuItem>
+            <MenuItem value={ExecutionState.FAILED}>Failed</MenuItem>
+          </Select>
+        </FormControl>
+        <IconButton>
+          <ListViewIcon />
+        </IconButton>
+        <IconButton>
+          <UploadIcon />
+        </IconButton>
+        <IconButton>
+          <GridViewIcon />
+        </IconButton>
+        <IconButton onClick={fetchExecutions} disabled={loading}>
+          <RefreshIcon />
+        </IconButton>
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
@@ -171,15 +186,15 @@ const ExecutionList = () => {
           <CircularProgress />
         </Box>
       ) : (
-        <TableContainer component={Paper}>
+        <TableContainer component={Paper} sx={{ boxShadow: "none", border: "1px solid #e0e0e0" }}>
           <Table>
             <TableHead>
-              <TableRow>
-                <TableCell>Execution ID</TableCell>
-                <TableCell>Workflow</TableCell>
-                <TableCell>State</TableCell>
-                <TableCell>Error</TableCell>
-                <TableCell>Actions</TableCell>
+              <TableRow sx={{ backgroundColor: "#fafafa" }}>
+                <TableCell sx={{ fontWeight: 600 }}>Execution ID</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Workflow</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>State</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Error</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 100 }} align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -197,12 +212,12 @@ const ExecutionList = () => {
                 filteredExecutions.map((execution) => (
                   <TableRow key={execution.id} hover>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+                      <Typography variant="body2" sx={{ fontFamily: "monospace", color: "text.secondary" }}>
                         {execution.id}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
+                      <Typography variant="body1" fontWeight={500}>
                         {execution.workflowName || execution.workflowId}
                       </Typography>
                       {execution.workflowName && (
@@ -229,15 +244,14 @@ const ExecutionList = () => {
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell align="right">
                       <IconButton
                         size="small"
                         onClick={() =>
                           navigate(`/workflows/executions/${execution.id}`)
                         }
-                        title="View Details"
                       >
-                        <ViewIcon />
+                        <MoreVertIcon />
                       </IconButton>
                     </TableCell>
                   </TableRow>

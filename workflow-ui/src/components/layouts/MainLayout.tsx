@@ -4,6 +4,14 @@ import {
   Menu as MenuIcon,
   Extension as ModuleIcon,
   AccountTree as WorkflowIcon,
+  Notifications as NotificationsIcon,
+  Person as PersonIcon,
+  KeyboardArrowDown as ArrowDownIcon,
+  Add as AddIcon,
+  Refresh as RefreshIcon,
+  ViewList as ListViewIcon,
+  ViewModule as GridViewIcon,
+  Upload as UploadIcon,
 } from "@mui/icons-material";
 import {
   AppBar,
@@ -24,6 +32,10 @@ import {
   Select,
   MenuItem,
   FormControl,
+  Button,
+  Menu,
+  Badge,
+  Avatar,
 } from "@mui/material";
 import { ReactNode, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -46,7 +58,10 @@ const menuItems = [
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [createMenuAnchor, setCreateMenuAnchor] = useState<null | HTMLElement>(null);
+  const [regionMenuAnchor, setRegionMenuAnchor] = useState<null | HTMLElement>(null);
+  const [profileMenuAnchor, setProfileMenuAnchor] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -65,60 +80,107 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   const handleSidebarMouseLeave = () => {
     if (!isMobile) {
-      setSidebarExpanded(false);
+      // Keep sidebar expanded by default
     }
   };
 
   const currentDrawerWidth = sidebarExpanded ? drawerWidth : drawerWidthMinified;
 
+  const handleCreateMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setCreateMenuAnchor(event.currentTarget);
+  };
+
+  const handleCreateMenuClose = () => {
+    setCreateMenuAnchor(null);
+  };
+
+  const handleRegionMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setRegionMenuAnchor(event.currentTarget);
+  };
+
+  const handleRegionMenuClose = () => {
+    setRegionMenuAnchor(null);
+  };
+
+  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setProfileMenuAnchor(event.currentTarget);
+  };
+
+  const handleProfileMenuClose = () => {
+    setProfileMenuAnchor(null);
+  };
+
   const drawer = (
-    <Box>
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <Box
         sx={{
-          height: 64,
-          backgroundColor: (theme) => theme.palette.primary.main,
-          display: { xs: "none", md: "block" },
+          p: 2,
+          display: "flex",
+          alignItems: "center",
+          borderBottom: "1px solid #e0e0e0",
         }}
-      />
-      <Divider />
-      <List>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path || location.pathname.startsWith(item.path + "/")}
-              onClick={() => {
-                navigate(item.path);
-                if (isMobile) setMobileOpen(false);
-              }}
-              sx={{
-                minHeight: 48,
-                justifyContent: sidebarExpanded ? "initial" : "center",
-                px: 2.5,
-              }}
-            >
-              <ListItemIcon
+      >
+        <Logo size={24} />
+        <Typography variant="h6" sx={{ ml: 1.5, color: "#000000", fontWeight: 600 }}>
+          Workflow Engine
+        </Typography>
+      </Box>
+      <Box sx={{ flexGrow: 1, overflow: "auto" }}>
+        <List sx={{ pt: 1 }}>
+          {menuItems.map((item) => (
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton
+                selected={location.pathname === item.path || location.pathname.startsWith(item.path + "/")}
+                onClick={() => {
+                  navigate(item.path);
+                  if (isMobile) setMobileOpen(false);
+                }}
                 sx={{
-                  minWidth: 0,
-                  mr: sidebarExpanded ? 3 : "auto",
-                  justifyContent: "center",
+                  minHeight: 48,
+                  justifyContent: "initial",
+                  px: 2.5,
+                  mx: 1,
+                  borderRadius: 1,
                 }}
               >
-                {sidebarExpanded ? (
-                  item.icon
-                ) : (
-                  <Tooltip title={item.text} placement="right">
-                    {item.icon}
-                  </Tooltip>
-                )}
-              </ListItemIcon>
-              <ListItemText
-                primary={item.text}
-                sx={{ opacity: sidebarExpanded ? 1 : 0 }}
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
+                <ListItemIcon
+                  sx={{
+                    minWidth: 40,
+                    mr: 2,
+                    justifyContent: "center",
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText primary={item.text} />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+      <Box
+        sx={{
+          p: 2,
+          borderTop: "1px solid #e0e0e0",
+        }}
+      >
+        <Typography
+          variant="body2"
+          sx={{
+            color: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            cursor: "pointer",
+            "&:hover": {
+              color: "#000000",
+            },
+          }}
+        >
+          <NotificationsIcon sx={{ fontSize: 18 }} />
+          Support
+        </Typography>
+      </Box>
     </Box>
   );
 
@@ -127,69 +189,115 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <AppBar
         position="fixed"
         sx={{
-          width: { md: "100%" },
-          left: { md: 0 },
+          width: { md: `calc(100% - ${currentDrawerWidth}px)` },
+          left: { md: `${currentDrawerWidth}px` },
           zIndex: (theme) => theme.zIndex.drawer + 1,
           transition: theme.transitions.create(["width", "left"], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
           }),
-          boxShadow: "none",
-          borderBottom: "1px solid",
-          borderColor: "divider",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          backgroundColor: "#ffffff",
+          color: "#000000",
         }}
       >
-        <Toolbar sx={{ px: 0, minHeight: "64px !important" }}>
-          <Box sx={{ 
-            display: "flex", 
-            alignItems: "center", 
-            ml: { md: `${currentDrawerWidth}px` },
-            pl: { xs: 2, md: 2 },
-            transition: theme.transitions.create("margin-left", {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.enteringScreen,
-            }) 
-          }}>
+        <Toolbar sx={{ px: 3, minHeight: "64px !important", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
             <IconButton
               color="inherit"
               aria-label="open drawer"
               edge="start"
               onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { md: "none" } }}
+              sx={{ mr: 1, display: { md: "none" } }}
             >
               <MenuIcon />
             </IconButton>
-            <Logo size={32} />
-            <Typography variant="h6" noWrap component="div" sx={{ ml: 1.5 }}>
-              Workflow Engine
+            <Typography variant="h6" sx={{ fontWeight: 500, color: "#000000" }}>
+              Welcome automation!
             </Typography>
           </Box>
-          <Box sx={{ flexGrow: 1 }} />
-          <Box sx={{ mr: 2 }}>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <Select
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                sx={{
-                  color: "inherit",
-                  "& .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "rgba(255, 255, 255, 0.23)",
-                  },
-                  "&:hover .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "rgba(255, 255, 255, 0.5)",
-                  },
-                  "& .MuiSvgIcon-root": {
-                    color: "inherit",
-                  },
-                }}
-              >
-                {projects.map((project) => (
-                  <MenuItem key={project} value={project}>
-                    {project}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              endIcon={<ArrowDownIcon />}
+              onClick={handleCreateMenuOpen}
+              sx={{
+                backgroundColor: "#2e7d32",
+                color: "#ffffff",
+                textTransform: "none",
+                "&:hover": {
+                  backgroundColor: "#1b5e20",
+                },
+              }}
+            >
+              Create
+            </Button>
+            <Menu
+              anchorEl={createMenuAnchor}
+              open={Boolean(createMenuAnchor)}
+              onClose={handleCreateMenuClose}
+            >
+              <MenuItem onClick={() => { navigate("/workflows/create"); handleCreateMenuClose(); }}>
+                Create Workflow
+              </MenuItem>
+              <MenuItem onClick={() => { navigate("/modules/create"); handleCreateMenuClose(); }}>
+                Create Module
+              </MenuItem>
+            </Menu>
+            <Button
+              variant="outlined"
+              endIcon={<ArrowDownIcon />}
+              onClick={handleRegionMenuOpen}
+              sx={{
+                textTransform: "none",
+                borderColor: "#e0e0e0",
+                color: "#000000",
+                "&:hover": {
+                  borderColor: "#bdbdbd",
+                  backgroundColor: "rgba(0,0,0,0.04)",
+                },
+              }}
+            >
+              {projectId || "dev"}
+            </Button>
+            <Menu
+              anchorEl={regionMenuAnchor}
+              open={Boolean(regionMenuAnchor)}
+              onClose={handleRegionMenuClose}
+            >
+              {projects.map((project) => (
+                <MenuItem
+                  key={project}
+                  onClick={() => {
+                    setProjectId(project);
+                    handleRegionMenuClose();
+                  }}
+                >
+                  {project}
+                </MenuItem>
+              ))}
+            </Menu>
+            <IconButton sx={{ color: "#000000" }}>
+              <Badge badgeContent={0} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+            <IconButton onClick={handleProfileMenuOpen} sx={{ p: 0.5 }}>
+              <Avatar sx={{ width: 32, height: 32, bgcolor: "#1976d2" }}>
+                <PersonIcon />
+              </Avatar>
+            </IconButton>
+            <Menu
+              anchorEl={profileMenuAnchor}
+              open={Boolean(profileMenuAnchor)}
+              onClose={handleProfileMenuClose}
+            >
+              <MenuItem onClick={handleProfileMenuClose}>Profile</MenuItem>
+              <MenuItem onClick={handleProfileMenuClose}>Settings</MenuItem>
+              <Divider />
+              <MenuItem onClick={handleProfileMenuClose}>Logout</MenuItem>
+            </Menu>
           </Box>
         </Toolbar>
       </AppBar>
@@ -215,6 +323,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: drawerWidth,
+              backgroundColor: "#ffffff",
+              color: "#000000",
+              borderRight: "1px solid #e0e0e0",
             },
           }}
         >
@@ -236,6 +347,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               }),
               overflowX: "hidden",
               borderRight: "none",
+              backgroundColor: "#ffffff",
+              color: "#000000",
+              borderRight: "1px solid #e0e0e0",
             },
           }}
           open
@@ -247,9 +361,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
           width: { md: `calc(100% - ${currentDrawerWidth}px)` },
           mt: 8,
+          backgroundColor: "#f5f5f5",
+          minHeight: "calc(100vh - 64px)",
           transition: theme.transitions.create(["width", "margin"], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
