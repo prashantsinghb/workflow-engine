@@ -2,6 +2,7 @@ package execution
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -75,21 +76,27 @@ func (e *Engine) ensureNodes(ctx context.Context, execID uuid.UUID, graph *dag.G
 	log.Printf("[Engine] Ensuring nodes exist: execution_id=%s, total_nodes=%d", execID, len(graph.Nodes))
 	for id, node := range graph.Nodes {
 		// Merge workflow execution inputs with node's 'with' clause
-		// Node's 'with' clause takes precedence over execution inputs
+		// Execution inputs take precedence over node's 'with' clause (user-provided values override defaults)
 		nodeInputs := make(map[string]any)
-		
-		// First, copy execution inputs (workflow-level inputs)
-		for k, v := range execInputs {
-			nodeInputs[k] = v
-		}
-		
-		// Then, override with node's 'with' clause (node-specific inputs)
+
+		// First, copy node's 'with' clause (defaults from workflow definition)
 		if node.With != nil {
 			for k, v := range node.With {
 				nodeInputs[k] = v
 			}
+			log.Printf("[Engine] Node 'with' clause applied: execution_id=%s, node_id=%s, with_values=%v", execID, string(id), node.With)
 		}
-		
+
+		// Then, override with execution inputs (user-provided values take precedence)
+		for k, v := range execInputs {
+			nodeInputs[k] = v
+		}
+		if len(execInputs) > 0 {
+			log.Printf("[Engine] Execution inputs applied: execution_id=%s, node_id=%s, execution_inputs=%v", execID, string(id), execInputs)
+		}
+
+		log.Printf("[Engine] Final node inputs: execution_id=%s, node_id=%s, final_inputs=%v", execID, string(id), nodeInputs)
+
 		n := &execution.ExecutionNode{
 			ExecutionID:  execID,
 			NodeID:       string(id),
@@ -150,17 +157,28 @@ func (e *Engine) reconcile(ctx context.Context, execID uuid.UUID, graph *dag.Gra
 				continue
 			}
 
-			// Check dependencies
+			dagNode := graph.Nodes[dag.NodeID(node.NodeID)]
+
 			if !e.dependenciesDone(node, nodes, graph) {
-				log.Printf("[Engine] Node dependencies not ready: execution_id=%s, node_id=%s", execID, node.NodeID)
+				continue
+			}
+
+			if !shouldExecute(dagNode, nodes) {
+				log.Printf("[Engine] Skipping node due to condition: execution_id=%s, node_id=%s",
+					execID, node.NodeID)
+
+				// Mark skipped as succeeded with empty output
+				_ = e.NodeStore.MarkSucceeded(ctx, node.ExecutionID, node.NodeID, map[string]any{
+					"skipped": true,
+				})
+				progress = true
 				continue
 			}
 
 			progress = true
-			log.Printf("[Engine] Executing node: execution_id=%s, node_id=%s, attempt=%d", execID, node.NodeID, node.Attempt+1)
+			log.Printf("[Engine] Executing node: execution_id=%s, node_id=%s", execID, node.NodeID)
+
 			if err := e.executeNode(ctx, node, graph); err != nil {
-				log.Printf("[Engine] Node execution error: execution_id=%s, node_id=%s, error=%v", execID, node.NodeID, err)
-				// Node marked failed inside executeNode
 				continue
 			}
 		}
@@ -225,11 +243,91 @@ func (e *Engine) dependenciesDone(node *execution.ExecutionNode, allNodes []exec
 	return true
 }
 
+// resolveInputs resolves node inputs from previous node outputs and workflow inputs
+func (e *Engine) resolveInputs(ctx context.Context, node *execution.ExecutionNode, graph *dag.Graph) (map[string]any, error) {
+	dagNode := graph.Nodes[dag.NodeID(node.NodeID)]
+	if dagNode == nil {
+		return node.Input, nil
+	}
+
+	resolved := make(map[string]any)
+
+	// Start with base inputs (from 'with' clause or execution inputs)
+	for k, v := range node.Input {
+		resolved[k] = v
+	}
+
+	// Resolve inputs from previous node outputs if 'inputs' field is defined
+	if dagNode.Inputs != nil {
+		// Load all nodes to get outputs from dependencies
+		allNodes, err := e.NodeStore.ListByExecution(ctx, node.ExecutionID)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create a map of node outputs
+		nodeOutputs := make(map[string]map[string]any)
+		for _, n := range allNodes {
+			if n.Status == execution.NodeSucceeded && n.Output != nil {
+				// Extract output from the stored output map
+				// Output is stored as {"output": actualOutputMap}
+				if wrappedOutput, ok := n.Output["output"]; ok {
+					if outputMap, ok := wrappedOutput.(map[string]any); ok {
+						nodeOutputs[n.NodeID] = outputMap
+					}
+				} else {
+					// If not wrapped, use the output directly
+					nodeOutputs[n.NodeID] = n.Output
+				}
+			}
+		}
+
+		// Resolve each input field
+		for inputKey, inputValue := range dagNode.Inputs {
+			if inputMap, ok := inputValue.(map[string]interface{}); ok {
+				// Check if it's a from_node reference
+				if fromNode, ok := inputMap["from_node"].(string); ok {
+					if key, ok := inputMap["key"].(string); ok {
+						// Get output from the referenced node
+						if depOutputs, exists := nodeOutputs[fromNode]; exists {
+							if value, found := depOutputs[key]; found {
+								resolved[inputKey] = value
+								log.Printf("[Engine] Resolved input %s from node %s.%s: %v",
+									inputKey, fromNode, key, value)
+							} else {
+								return nil, fmt.Errorf("key '%s' not found in output of node '%s'", key, fromNode)
+							}
+						} else {
+							return nil, fmt.Errorf("node '%s' output not found (node may not have completed)", fromNode)
+						}
+					}
+				} else {
+					// Not a from_node reference, use the value as-is
+					resolved[inputKey] = inputValue
+				}
+			} else {
+				// Simple value, use as-is
+				resolved[inputKey] = inputValue
+			}
+		}
+	}
+
+	return resolved, nil
+}
+
 // executeNode executes a single node
 func (e *Engine) executeNode(ctx context.Context, node *execution.ExecutionNode, graph *dag.Graph) error {
 	node.Attempt++
 	log.Printf("[Engine] Executing node: execution_id=%s, node_id=%s, attempt=%d/%d, executor_type=%s",
 		node.ExecutionID, node.NodeID, node.Attempt, node.MaxAttempts, node.ExecutorType)
+
+	// Resolve inputs from previous node outputs if needed
+	resolvedInputs, err := e.resolveInputs(ctx, node, graph)
+	if err != nil {
+		log.Printf("[Engine] Failed to resolve inputs: execution_id=%s, node_id=%s, error=%v",
+			node.ExecutionID, node.NodeID, err)
+		return e.failOrRetry(ctx, node, err)
+	}
 
 	// Resolve module first before marking as running
 	mod, err := e.ModuleReg.Resolve(ctx, "", node.ExecutorType)
@@ -255,8 +353,8 @@ func (e *Engine) executeNode(ctx context.Context, node *execution.ExecutionNode,
 	}
 
 	log.Printf("[Engine] Executing node with executor: execution_id=%s, node_id=%s, runtime=%s, inputs=%v",
-		node.ExecutionID, node.NodeID, mod.Runtime, node.Input)
-	out, err := execImpl.Execute(ctx, graph.Nodes[dag.NodeID(node.NodeID)], node.Input)
+		node.ExecutionID, node.NodeID, mod.Runtime, resolvedInputs)
+	out, err := execImpl.Execute(ctx, graph.Nodes[dag.NodeID(node.NodeID)], resolvedInputs)
 	if err != nil {
 		log.Printf("[Engine] Node execution failed: execution_id=%s, node_id=%s, error=%v",
 			node.ExecutionID, node.NodeID, err)
@@ -343,6 +441,40 @@ func (e *Engine) isCompleted(nodes []execution.ExecutionNode, execID uuid.UUID) 
 		log.Printf("[Engine] Marking execution as completed: execution_id=%s, output_count=%d", execID, len(outputs))
 		_ = e.ExecStore.MarkCompleted(context.Background(), execID, map[string]any{"outputs": outputs})
 		return true
+	}
+
+	return false
+}
+
+func shouldExecute(
+	node *dag.Node,
+	allNodes []execution.ExecutionNode,
+) bool {
+
+	if node.When == nil {
+		return true
+	}
+
+	for _, n := range allNodes {
+		if n.NodeID == node.When.FromNode && n.Status == execution.NodeSucceeded {
+			out := n.Output
+
+			// unwrap {"output": {...}}
+			if wrapped, ok := out["output"]; ok {
+				if m, ok := wrapped.(map[string]any); ok {
+					out = m
+				}
+			}
+
+			val := out[node.When.Key]
+
+			if node.When.Equals != nil {
+				return val == node.When.Equals
+			}
+			if node.When.NotEquals != nil {
+				return val != node.When.NotEquals
+			}
+		}
 	}
 
 	return false

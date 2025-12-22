@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   Box,
-  Container,
   Typography,
   Button,
   Paper,
@@ -9,14 +8,20 @@ import {
   TextField,
   CircularProgress,
   Alert,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Chip,
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
+import { ExpandMore as ExpandMoreIcon } from "@mui/icons-material";
 import { workflowApi } from "@/services/client/workflowApi";
 import { GetWorkflowResponse } from "@/types/workflow";
 import { toast } from "react-toastify";
 import { useProject } from "@/contexts/ProjectContext";
+import Breadcrumbs from "@/components/atoms/Breadcrumbs";
 
 const WorkflowDetails = () => {
   const { workflowId } = useParams<{ workflowId: string }>();
@@ -66,29 +71,41 @@ const WorkflowDetails = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4, textAlign: "center" }}>
+      <Box sx={{ textAlign: "center", py: 4 }}>
         <CircularProgress />
-      </Container>
+      </Box>
     );
   }
 
   if (error || !workflow) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ p: 3 }}>
         <Alert severity="error">{error || "Workflow not found"}</Alert>
         <Button variant="outlined" onClick={() => navigate("/workflows")} sx={{ mt: 2 }}>
           Back to List
         </Button>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
+      <Breadcrumbs
+        items={[
+          { label: "Workflows", path: "/workflows" },
+          { label: workflow.workflow.name || workflow.workflow.id },
+        ]}
+      />
+
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Workflow Details
-        </Typography>
+        <Box>
+          <Typography variant="h4" component="h1" sx={{ mb: 1 }}>
+            {workflow.workflow.name || "Workflow Details"}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {workflow.workflow.id}
+          </Typography>
+        </Box>
         <Button variant="outlined" onClick={() => navigate("/workflows")}>
           Back to List
         </Button>
@@ -97,40 +114,85 @@ const WorkflowDetails = () => {
       <Grid container spacing={3}>
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+              Workflow Information
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} sm={6} md={3}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Workflow Name
+                  Name
                 </Typography>
-                <Typography variant="h6">{workflow.workflow.name}</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                  {workflow.workflow.name || "N/A"}
+                </Typography>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} md={3}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Version
                 </Typography>
-                <Typography variant="body1">{workflow.workflow.version}</Typography>
+                <Chip label={workflow.workflow.version} size="small" color="primary" />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} md={3}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Workflow ID
                 </Typography>
-                <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+                <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.875rem" }}>
                   {workflow.workflow.id}
                 </Typography>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} md={3}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Project ID
                 </Typography>
-                <Typography variant="body1">{workflow.workflow.projectId}</Typography>
+                <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.875rem" }}>
+                  {workflow.workflow.projectId}
+                </Typography>
               </Grid>
             </Grid>
           </Paper>
         </Grid>
 
+        {workflow.yaml && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Workflow Definition (YAML)
+              </Typography>
+              <Accordion defaultExpanded>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography>View YAML Definition</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box
+                    sx={{
+                      bgcolor: "grey.50",
+                      p: 2,
+                      borderRadius: 1,
+                      maxHeight: "600px",
+                      overflow: "auto",
+                    }}
+                  >
+                    <pre
+                      style={{
+                        margin: 0,
+                        fontFamily: "monospace",
+                        fontSize: "0.875rem",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {workflow.yaml}
+                    </pre>
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+            </Paper>
+          </Grid>
+        )}
+
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
               Start Execution
             </Typography>
             <Formik
@@ -165,8 +227,8 @@ const WorkflowDetails = () => {
             >
               {({ values, errors, touched, handleChange, isSubmitting }) => (
                 <Form>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
                       <TextField
                         fullWidth
                         label="Client Request ID"
@@ -186,10 +248,16 @@ const WorkflowDetails = () => {
                         value={values.inputs}
                         onChange={handleChange}
                         error={touched.inputs && !!errors.inputs}
-                        helperText={touched.inputs && errors.inputs}
+                        helperText={touched.inputs && errors.inputs || "Enter JSON object for workflow inputs"}
                         margin="normal"
                         multiline
-                        rows={4}
+                        rows={6}
+                        sx={{
+                          "& .MuiInputBase-root": {
+                            fontFamily: "monospace",
+                            fontSize: "0.875rem",
+                          },
+                        }}
                       />
                     </Grid>
                     <Grid item xs={12}>
@@ -197,8 +265,18 @@ const WorkflowDetails = () => {
                         variant="contained"
                         type="submit"
                         disabled={isSubmitting}
+                        sx={{
+                          bgcolor: "#2e7d32",
+                          "&:hover": {
+                            bgcolor: "#1b5e20",
+                          },
+                        }}
                       >
-                        {isSubmitting ? <CircularProgress size={20} /> : "Start Execution"}
+                        {isSubmitting ? (
+                          <CircularProgress size={20} sx={{ color: "white" }} />
+                        ) : (
+                          "Start Execution"
+                        )}
                       </Button>
                     </Grid>
                   </Grid>
