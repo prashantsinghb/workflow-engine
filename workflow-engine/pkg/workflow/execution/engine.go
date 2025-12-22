@@ -365,26 +365,63 @@ func (e *Engine) executeNode(ctx context.Context, node *execution.ExecutionNode,
 	return e.NodeStore.MarkSucceeded(ctx, node.ExecutionID, node.NodeID, map[string]any{"output": out})
 }
 
-// failOrRetry handles retry logic or marks node failed
-func (e *Engine) failOrRetry(ctx context.Context, node *execution.ExecutionNode, execErr error) error {
-	if node.Attempt < node.MaxAttempts {
-		log.Printf("[Engine] Retrying node: execution_id=%s, node_id=%s, attempt=%d/%d, error=%v",
-			node.ExecutionID, node.NodeID, node.Attempt, node.MaxAttempts, execErr)
-		// Use IncrementAttempt which properly sets status to RETRYING
+// failOrRetry decides whether to retry a node or mark it failed
+func (e *Engine) failOrRetry(
+	ctx context.Context,
+	node *execution.ExecutionNode,
+	execErr error,
+) error {
+
+	// Check retryability
+	if IsRetryable(execErr) && node.Attempt < node.MaxAttempts {
+		log.Printf(
+			"[Engine] Retrying node (retryable error): execution_id=%s, node_id=%s, attempt=%d/%d, error=%v",
+			node.ExecutionID,
+			node.NodeID,
+			node.Attempt,
+			node.MaxAttempts,
+			execErr,
+		)
+
+		// Persist retry attempt
 		if err := e.NodeStore.IncrementAttempt(ctx, node.ExecutionID, node.NodeID); err != nil {
-			log.Printf("[Engine] Failed to update node for retry: execution_id=%s, node_id=%s, error=%v",
-				node.ExecutionID, node.NodeID, err)
+			log.Printf(
+				"[Engine] Failed to persist retry attempt: execution_id=%s, node_id=%s, error=%v",
+				node.ExecutionID,
+				node.NodeID,
+				err,
+			)
 			return err
 		}
-		// Update local node status for consistency
+
+		// Update in-memory state
 		node.Status = execution.NodeRetrying
 		node.Attempt++
+
 		return nil
 	}
 
-	log.Printf("[Engine] Node failed after max attempts: execution_id=%s, node_id=%s, attempts=%d, error=%v",
-		node.ExecutionID, node.NodeID, node.Attempt, execErr)
-	return e.NodeStore.MarkFailed(ctx, node.ExecutionID, node.NodeID, map[string]any{"message": execErr.Error()})
+	// Non-retryable OR retries exhausted → FAIL
+	log.Printf(
+		"[Engine] Node failed: execution_id=%s, node_id=%s, retryable=%t, attempts=%d/%d, error=%v",
+		node.ExecutionID,
+		node.NodeID,
+		IsRetryable(execErr),
+		node.Attempt,
+		node.MaxAttempts,
+		execErr,
+	)
+
+	return e.NodeStore.MarkFailed(
+		ctx,
+		node.ExecutionID,
+		node.NodeID,
+		map[string]any{
+			"message":   execErr.Error(),
+			"retryable": IsRetryable(execErr),
+			"attempts":  node.Attempt,
+		},
+	)
 }
 
 // isCompleted checks if all nodes have finished
