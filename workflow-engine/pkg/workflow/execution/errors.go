@@ -1,5 +1,10 @@
 package execution
 
+import (
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
 type RetryableError struct {
 	Err error
 }
@@ -9,6 +14,15 @@ func (r RetryableError) Error() string {
 }
 
 func IsRetryable(err error) bool {
-	_, ok := err.(RetryableError)
-	return ok
+	st, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+
+	switch st.Code() {
+	case codes.Unavailable, codes.DeadlineExceeded, codes.ResourceExhausted:
+		return true
+	default:
+		return false
+	}
 }

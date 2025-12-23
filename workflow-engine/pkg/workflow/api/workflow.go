@@ -11,4 +11,5 @@ type Node struct {
 	With      map[string]interface{} `yaml:"with,omitempty" json:"with,omitempty"`
 	Inputs    map[string]interface{} `yaml:"inputs,omitempty" json:"inputs,omitempty"`
 	When      map[string]interface{} `yaml:"when,omitempty" json:"when,omitempty"`
+	Retry     map[string]interface{} `yaml:"retry,omitempty" json:"retry,omitempty"`
 }

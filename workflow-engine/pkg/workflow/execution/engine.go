@@ -97,12 +97,17 @@ func (e *Engine) ensureNodes(ctx context.Context, execID uuid.UUID, graph *dag.G
 
 		log.Printf("[Engine] Final node inputs: execution_id=%s, node_id=%s, final_inputs=%v", execID, string(id), nodeInputs)
 
+		maxAttempts := node.Retry.MaxAttemptsOrDefault()
+		if maxAttempts == 1 {
+			// Default to 3 if no retry policy is specified
+			maxAttempts = 3
+		}
 		n := &execution.ExecutionNode{
 			ExecutionID:  execID,
 			NodeID:       string(id),
 			ExecutorType: node.Uses,
 			Status:       execution.NodePending,
-			MaxAttempts:  3, // default retries if needed
+			MaxAttempts:  maxAttempts,
 			Attempt:      0,
 			Input:        nodeInputs,
 		}
@@ -317,6 +322,8 @@ func (e *Engine) resolveInputs(ctx context.Context, node *execution.ExecutionNod
 
 // executeNode executes a single node
 func (e *Engine) executeNode(ctx context.Context, node *execution.ExecutionNode, graph *dag.Graph) error {
+	// Increment attempt at the start of execution
+	// This represents the current attempt number (1-indexed)
 	node.Attempt++
 	log.Printf("[Engine] Executing node: execution_id=%s, node_id=%s, attempt=%d/%d, executor_type=%s",
 		node.ExecutionID, node.NodeID, node.Attempt, node.MaxAttempts, node.ExecutorType)
@@ -373,6 +380,8 @@ func (e *Engine) failOrRetry(
 ) error {
 
 	// Check retryability
+	// Note: Attempt was already incremented in executeNode, so we check if we can make another attempt
+	// If Attempt < MaxAttempts, we've made Attempt attempts and can make one more
 	if IsRetryable(execErr) && node.Attempt < node.MaxAttempts {
 		log.Printf(
 			"[Engine] Retrying node (retryable error): execution_id=%s, node_id=%s, attempt=%d/%d, error=%v",
@@ -384,19 +393,22 @@ func (e *Engine) failOrRetry(
 		)
 
 		// Persist retry attempt
-		if err := e.NodeStore.IncrementAttempt(ctx, node.ExecutionID, node.NodeID); err != nil {
+		// Note: Attempt was already incremented in executeNode, so we just need to persist it
+		// IncrementAttempt increments the DB value, so we need to account for that
+		// Since Attempt is already incremented in memory, we don't need to increment again
+		// But IncrementAttempt will increment in DB, so we need to sync
+		// Actually, we should NOT call IncrementAttempt here since Attempt is already incremented
+		// Instead, we should just update the status
+		node.Status = execution.NodeRetrying
+		if err := e.NodeStore.Upsert(ctx, node); err != nil {
 			log.Printf(
-				"[Engine] Failed to persist retry attempt: execution_id=%s, node_id=%s, error=%v",
+				"[Engine] Failed to persist retry state: execution_id=%s, node_id=%s, error=%v",
 				node.ExecutionID,
 				node.NodeID,
 				err,
 			)
 			return err
 		}
-
-		// Update in-memory state
-		node.Status = execution.NodeRetrying
-		node.Attempt++
 
 		return nil
 	}

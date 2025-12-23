@@ -7,15 +7,16 @@ import (
 type NodeID string
 
 type Node struct {
-	ID       NodeID
-	Depends  []NodeID
-	Children []NodeID
-	Executor string
-	Uses     string
-	With     map[string]interface{}
-	Inputs   map[string]interface{}
-	When     *Condition
-	Retry    *RetryPolicy
+	ID         NodeID
+	Depends    []NodeID
+	Children   []NodeID
+	Executor   string
+	Uses       string
+	With       map[string]interface{}
+	Inputs     map[string]interface{}
+	When       *Condition
+	Retry      *RetryPolicy
+	Compensate *Compensation
 }
 
 type Condition struct {
@@ -27,6 +28,11 @@ type Condition struct {
 
 type RetryPolicy struct {
 	MaxAttempts int
+}
+
+type Compensation struct {
+	Uses string
+	With map[string]interface{}
 }
 
 func (r *RetryPolicy) MaxAttemptsOrDefault() int {
@@ -72,6 +78,23 @@ func Build(def *api.Definition) *Graph {
 			}
 			if when.FromNode != "" && when.Key != "" {
 				node.When = when
+			}
+		}
+
+		// Parse Retry policy if present
+		if n.Retry != nil {
+			retry := &RetryPolicy{}
+			if maxAttempts, ok := n.Retry["MaxAttempts"].(int); ok {
+				retry.MaxAttempts = maxAttempts
+			} else if maxAttempts, ok := n.Retry["max_attempts"].(int); ok {
+				retry.MaxAttempts = maxAttempts
+			} else if maxAttemptsFloat, ok := n.Retry["MaxAttempts"].(float64); ok {
+				retry.MaxAttempts = int(maxAttemptsFloat)
+			} else if maxAttemptsFloat, ok := n.Retry["max_attempts"].(float64); ok {
+				retry.MaxAttempts = int(maxAttemptsFloat)
+			}
+			if retry.MaxAttempts > 0 {
+				node.Retry = retry
 			}
 		}
 
