@@ -11,12 +11,12 @@
 # Output of the go coverage tool
 *.out
 
-# Generated files (Go)
-workflow-engine/api/service/*.pb.go
-workflow-engine/api/service/*_grpc.pb.go
-workflow-engine/api/service/*.pb.gw.go
-workflow-engine/api/service/*.pb.sdk.go
-workflow-engine/api/service/swagger/
+# # Generated files (Go)
+# workflow-engine/api/service/*.pb.go
+# workflow-engine/api/service/*_grpc.pb.go
+# workflow-engine/api/service/*.pb.gw.go
+# workflow-engine/api/service/*.pb.sdk.go
+# workflow-engine/api/service/swagger/
 
 # Node modules (UI)
 workflow-ui/node_modules/
@@ -48,9 +48,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Service binaries
-workflow-engine/service
-workflow-engine/cmd/service/service
+# # Service binaries
+# workflow-engine/service
+# workflow-engine/cmd/service/service
 
 # Docker compose (has its own git repo - add as submodule if needed)
 docker-compose/
