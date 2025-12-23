@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.replicaCount.service }}
+  selector:
+    matchLabels:
+      app: service
+  template:
+    metadata:
+      labels:
+        app: service
+      annotations:
+        prometheus.io/path: metrics
+        prometheus.io/port: "9100"
+        prometheus.io/scrape: "true"
+    spec:
+      initContainers:
+      - name: mongodb-wait-configdb
+        image: {{ .Values.global.repository }}/mongo:5.0.3
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/bash
+        - -c
+        - |
+          while true; do
+            mongosh --host $MONGODB_SERVICE_SERVICE_HOST -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --eval "rs.status()"
+            if [ $? == "0" ]; then
+              exit 0
+            fi
+            echo "waiting for mongodb to start"
+            sleep 5
+          done
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: configdb-secret
+              key: username
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: configdb-secret
+              key: password
+        - name: MONGODB_SERVICE_SERVICE_HOST
+          value: "workflow-configdb"
+      containers:
+      - name: service
+        image: {{ .Values.global.repository }}/service:{{ .Values.global.ReleaseTag }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: 8080
+          name: api
+        - containerPort: 8090
+          name: grpc
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        volumeMounts:
+        - name: config-vol
+          mountPath: /opt/config.yml
+          subPath: config.yml
+        env:
+        - name: MONGO_DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: configdb-secret
+              key: username
+        - name: MONGO_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: configdb-secret
+              key: password
+      volumes:
+      - name: config-vol
+        configMap:
+          name: service-config
+
