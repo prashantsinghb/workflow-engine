@@ -4,11 +4,8 @@ import (
 	"context"
 	"log"
 	"net"
-	"sync/atomic"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	pb "github.com/prashantsinghb/workflow-engine/pkg/proto"
 )
@@ -24,20 +21,20 @@ func (u *UserExecutor) ExecuteStep(
 	ctx context.Context,
 	req *pb.ExecuteRequest,
 ) (*pb.ExecuteResponse, error) {
-	attempt := atomic.AddInt32(&u.failCounter, 1)
+	// attempt := atomic.AddInt32(&u.failCounter, 1)
 	userID := req.Input["userId"]
 
-	if attempt <= 2 {
-		log.Printf("Simulated failure for user %s, attempt %d\n", userID, attempt)
-		return nil, status.Error(codes.Unavailable, "transient error, please retry")
-	}
+	// if attempt <= 2 {
+	// 	log.Printf("Simulated failure for user %s, attempt %d\n", userID, attempt)
+	// 	return nil, status.Error(codes.Unavailable, "transient error, please retry")
+	// }
 
 	out := map[string]string{
 		"userId": userID,
 		"email":  userID + "@example.com",
 	}
 
-	log.Printf("User service executed successfully on attempt %d: %+v\n", attempt, out)
+	//log.Printf("User service executed successfully on attempt %d: %+v\n", attempt, out)
 	return &pb.ExecuteResponse{Output: out}, nil
 }
 

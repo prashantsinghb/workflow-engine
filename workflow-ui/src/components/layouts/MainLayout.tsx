@@ -5,13 +5,11 @@ import {
   Extension as ModuleIcon,
   AccountTree as WorkflowIcon,
   Notifications as NotificationsIcon,
-  Person as PersonIcon,
   KeyboardArrowDown as ArrowDownIcon,
   Add as AddIcon,
   Refresh as RefreshIcon,
   ViewList as ListViewIcon,
   ViewModule as GridViewIcon,
-  Upload as UploadIcon,
 } from "@mui/icons-material";
 import {
   AppBar,
@@ -35,7 +33,6 @@ import {
   Button,
   Menu,
   Badge,
-  Avatar,
 } from "@mui/material";
 import { ReactNode, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -61,7 +58,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [createMenuAnchor, setCreateMenuAnchor] = useState<null | HTMLElement>(null);
   const [regionMenuAnchor, setRegionMenuAnchor] = useState<null | HTMLElement>(null);
-  const [profileMenuAnchor, setProfileMenuAnchor] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -100,14 +96,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   const handleRegionMenuClose = () => {
     setRegionMenuAnchor(null);
-  };
-
-  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setProfileMenuAnchor(event.currentTarget);
-  };
-
-  const handleProfileMenuClose = () => {
-    setProfileMenuAnchor(null);
   };
 
   const drawer = (
@@ -212,9 +200,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             >
               <MenuIcon />
             </IconButton>
-            <Typography variant="h6" sx={{ fontWeight: 500, color: "#000000" }}>
-              Welcome automation!
-            </Typography>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Button
@@ -283,21 +268,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 <NotificationsIcon />
               </Badge>
             </IconButton>
-            <IconButton onClick={handleProfileMenuOpen} sx={{ p: 0.5 }}>
-              <Avatar sx={{ width: 32, height: 32, bgcolor: "#1976d2" }}>
-                <PersonIcon />
-              </Avatar>
-            </IconButton>
-            <Menu
-              anchorEl={profileMenuAnchor}
-              open={Boolean(profileMenuAnchor)}
-              onClose={handleProfileMenuClose}
-            >
-              <MenuItem onClick={handleProfileMenuClose}>Profile</MenuItem>
-              <MenuItem onClick={handleProfileMenuClose}>Settings</MenuItem>
-              <Divider />
-              <MenuItem onClick={handleProfileMenuClose}>Logout</MenuItem>
-            </Menu>
           </Box>
         </Toolbar>
       </AppBar>

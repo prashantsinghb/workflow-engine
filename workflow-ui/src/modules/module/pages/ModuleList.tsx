@@ -22,6 +22,7 @@ import {
   AccordionDetails,
   Select,
   MenuItem,
+  Grid,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import {
@@ -35,7 +36,6 @@ import {
   ViewList as ListViewIcon,
   ViewModule as GridViewIcon,
   Refresh as RefreshIcon,
-  Upload as UploadIcon,
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import { moduleApi } from "@/services/client/moduleApi";
@@ -49,6 +49,7 @@ const ModuleList = () => {
   const [modules, setModules] = useState<Module[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   useEffect(() => {
     loadModules();
@@ -202,13 +203,16 @@ const ModuleList = () => {
             }}
             sx={{ flexGrow: 1, maxWidth: 400 }}
           />
-          <IconButton>
+          <IconButton
+            onClick={() => setViewMode("list")}
+            color={viewMode === "list" ? "primary" : "default"}
+          >
             <ListViewIcon />
           </IconButton>
-          <IconButton>
-            <UploadIcon />
-          </IconButton>
-          <IconButton>
+          <IconButton
+            onClick={() => setViewMode("grid")}
+            color={viewMode === "grid" ? "primary" : "default"}
+          >
             <GridViewIcon />
           </IconButton>
           <IconButton onClick={loadModules}>
@@ -239,7 +243,7 @@ const ModuleList = () => {
             </Button>
           </CardContent>
         </Card>
-      ) : (
+      ) : viewMode === "list" ? (
         <TableContainer component={Paper} sx={{ boxShadow: "none", border: "1px solid #e0e0e0" }}>
           <Table>
             <TableHead>
@@ -510,6 +514,134 @@ const ModuleList = () => {
             </TableBody>
           </Table>
         </TableContainer>
+      ) : (
+        <Grid container spacing={3}>
+          {groupedModules.length === 0 ? (
+            <Grid item xs={12}>
+              <Box sx={{ textAlign: "center", py: 4 }}>
+                <Typography variant="body2" color="text.secondary">
+                  No modules match your search.
+                </Typography>
+              </Box>
+            </Grid>
+          ) : (
+            groupedModules.map((group) => (
+              <Grid item xs={12} sm={6} md={4} key={group.name}>
+                <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
+                      <Typography variant="h6" component="div" sx={{ fontWeight: 600, flexGrow: 1 }}>
+                        {group.name}
+                      </Typography>
+                      <Box sx={{ display: "flex", gap: 0.5 }}>
+                        <Chip
+                          label={group.latest.version}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
+                        {group.others.length > 0 && (
+                          <Chip
+                            label="Latest"
+                            size="small"
+                            color="success"
+                            sx={{ fontSize: "0.65rem", height: "18px" }}
+                          />
+                        )}
+                      </Box>
+                    </Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                        Runtime
+                      </Typography>
+                      <Chip
+                        icon={
+                          group.latest.runtime === "http" ? (
+                            <HttpIcon fontSize="small" />
+                          ) : group.latest.runtime === "go" ? (
+                            <CodeIcon fontSize="small" />
+                          ) : (
+                            <ContainerIcon fontSize="small" />
+                          )
+                        }
+                        label={
+                          group.latest.runtime === "http"
+                            ? "HTTP"
+                            : group.latest.runtime === "go"
+                            ? "Go"
+                            : group.latest.runtime === "docker"
+                            ? "Container"
+                            : group.latest.runtime?.toUpperCase() || "Unknown"
+                        }
+                        size="small"
+                        color={
+                          group.latest.runtime === "http"
+                            ? "primary"
+                            : group.latest.runtime === "go"
+                            ? "success"
+                            : "secondary"
+                        }
+                        variant="outlined"
+                      />
+                    </Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                        URL/Image/Endpoint
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontFamily: "monospace",
+                          fontSize: "0.75rem",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                        title={getModuleUrl(group.latest)}
+                      >
+                        {getModuleUrl(group.latest)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                        Project
+                      </Typography>
+                      <Chip
+                        label={group.latest.project_id || "global"}
+                        size="small"
+                        color={group.latest.project_id ? "default" : "info"}
+                        variant="outlined"
+                      />
+                    </Box>
+                    {group.others.length > 0 && (
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {group.others.length} older version{group.others.length > 1 ? "s" : ""}
+                        </Typography>
+                      </Box>
+                    )}
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<ViewIcon />}
+                      onClick={() => navigate(`/modules/${group.latest.name}/versions/${group.latest.version}`)}
+                      fullWidth
+                      sx={{
+                        backgroundColor: "#2e7d32",
+                        "&:hover": {
+                          backgroundColor: "#1b5e20",
+                        },
+                        mt: "auto",
+                      }}
+                    >
+                      View Details
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))
+          )}
+        </Grid>
       )}
     </Box>
   );

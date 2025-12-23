@@ -20,6 +20,9 @@ import {
   InputLabel,
   CircularProgress,
   Alert,
+  Grid,
+  Card,
+  CardContent,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import {
@@ -28,7 +31,6 @@ import {
   Refresh as RefreshIcon,
   ViewList as ListViewIcon,
   ViewModule as GridViewIcon,
-  Upload as UploadIcon,
   Visibility as ViewIcon,
 } from "@mui/icons-material";
 import { ExecutionState, ExecutionInfo } from "@/types/workflow";
@@ -45,6 +47,7 @@ const ExecutionList = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   const fetchExecutions = async () => {
     try {
@@ -162,13 +165,16 @@ const ExecutionList = () => {
             <MenuItem value={ExecutionState.FAILED}>Failed</MenuItem>
           </Select>
         </FormControl>
-        <IconButton>
+        <IconButton
+          onClick={() => setViewMode("list")}
+          color={viewMode === "list" ? "primary" : "default"}
+        >
           <ListViewIcon />
         </IconButton>
-        <IconButton>
-          <UploadIcon />
-        </IconButton>
-        <IconButton>
+        <IconButton
+          onClick={() => setViewMode("grid")}
+          color={viewMode === "grid" ? "primary" : "default"}
+        >
           <GridViewIcon />
         </IconButton>
         <IconButton onClick={fetchExecutions} disabled={loading}>
@@ -186,7 +192,7 @@ const ExecutionList = () => {
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress />
         </Box>
-      ) : (
+      ) : viewMode === "list" ? (
         <TableContainer component={Paper} sx={{ boxShadow: "none", border: "1px solid #e0e0e0" }}>
           <Table>
             <TableHead>
@@ -263,6 +269,83 @@ const ExecutionList = () => {
             </TableBody>
           </Table>
         </TableContainer>
+      ) : (
+        <Grid container spacing={3}>
+          {filteredExecutions.length === 0 ? (
+            <Grid item xs={12}>
+              <Box sx={{ textAlign: "center", py: 4 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {searchTerm || statusFilter !== "all"
+                    ? "No executions match your filters."
+                    : "No executions found. Start a workflow execution to see it here."}
+                </Typography>
+              </Box>
+            </Grid>
+          ) : (
+            filteredExecutions.map((execution) => (
+              <Grid item xs={12} sm={6} md={4} key={execution.id}>
+                <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
+                      <Typography variant="h6" component="div" sx={{ fontWeight: 600, flexGrow: 1 }}>
+                        {execution.workflowName || execution.workflowId}
+                      </Typography>
+                      <Chip
+                        label={execution.state}
+                        color={getStateColor(execution.state) as "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"}
+                        size="small"
+                      />
+                    </Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                        Execution ID
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontFamily: "monospace", color: "text.secondary" }}>
+                        {execution.id}
+                      </Typography>
+                    </Box>
+                    {execution.workflowName && (
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                          Workflow ID
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontFamily: "monospace", color: "text.secondary" }}>
+                          {execution.workflowId.substring(0, 16)}...
+                        </Typography>
+                      </Box>
+                    )}
+                    {execution.error && (
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                          Error
+                        </Typography>
+                        <Typography variant="body2" color="error" sx={{ wordBreak: "break-word" }}>
+                          {execution.error}
+                        </Typography>
+                      </Box>
+                    )}
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<ViewIcon />}
+                      onClick={() => navigate(`/workflows/executions/${execution.id}`)}
+                      fullWidth
+                      sx={{
+                        backgroundColor: "#2e7d32",
+                        "&:hover": {
+                          backgroundColor: "#1b5e20",
+                        },
+                        mt: "auto",
+                      }}
+                    >
+                      View Details
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))
+          )}
+        </Grid>
       )}
     </Box>
   );

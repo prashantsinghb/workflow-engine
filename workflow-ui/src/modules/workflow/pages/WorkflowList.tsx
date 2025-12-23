@@ -25,6 +25,7 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
+  Grid,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import {
@@ -36,7 +37,6 @@ import {
   ViewList as ListViewIcon,
   ViewModule as GridViewIcon,
   Refresh as RefreshIcon,
-  Upload as UploadIcon,
 } from "@mui/icons-material";
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
@@ -58,6 +58,7 @@ const WorkflowList = () => {
   const [executeDialogOpen, setExecuteDialogOpen] = useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowInfo | null>(null);
   const [executing, setExecuting] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   const loadWorkflows = async () => {
     try {
@@ -188,13 +189,16 @@ const WorkflowList = () => {
             }}
             sx={{ flexGrow: 1, maxWidth: 400 }}
           />
-          <IconButton>
+          <IconButton
+            onClick={() => setViewMode("list")}
+            color={viewMode === "list" ? "primary" : "default"}
+          >
             <ListViewIcon />
           </IconButton>
-          <IconButton>
-            <UploadIcon />
-          </IconButton>
-          <IconButton>
+          <IconButton
+            onClick={() => setViewMode("grid")}
+            color={viewMode === "grid" ? "primary" : "default"}
+          >
             <GridViewIcon />
           </IconButton>
           <IconButton onClick={loadWorkflows}>
@@ -221,7 +225,7 @@ const WorkflowList = () => {
             </Button>
           </CardContent>
         </Card>
-      ) : (
+      ) : viewMode === "list" ? (
         <>
           <TableContainer component={Paper} sx={{ boxShadow: "none", border: "1px solid #e0e0e0" }}>
             <Table>
@@ -290,6 +294,101 @@ const WorkflowList = () => {
               </TableBody>
             </Table>
           </TableContainer>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Showing {page * rowsPerPage + 1}-{Math.min((page + 1) * rowsPerPage, filteredWorkflows.length)} of {filteredWorkflows.length} results
+            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Results per page:
+              </Typography>
+              <Select
+                value={rowsPerPage}
+                onChange={(e) => {
+                  setRowsPerPage(Number(e.target.value));
+                  setPage(0);
+                }}
+                size="small"
+                sx={{ minWidth: 80 }}
+              >
+                <MenuItem value={10}>10</MenuItem>
+                <MenuItem value={25}>25</MenuItem>
+                <MenuItem value={50}>50</MenuItem>
+              </Select>
+              <Typography variant="body2" color="text.secondary">
+                Page {page + 1} of {Math.ceil(filteredWorkflows.length / rowsPerPage) || 1}
+              </Typography>
+            </Box>
+          </Box>
+        </>
+      ) : (
+        <>
+          <Grid container spacing={3}>
+            {paginatedWorkflows.length === 0 ? (
+              <Grid item xs={12}>
+                <Box sx={{ textAlign: "center", py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No workflows match your search.
+                  </Typography>
+                </Box>
+              </Grid>
+            ) : (
+              paginatedWorkflows.map((workflow) => (
+                <Grid item xs={12} sm={6} md={4} key={workflow.id}>
+                  <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
+                        <Typography variant="h6" component="div" sx={{ fontWeight: 600, flexGrow: 1 }}>
+                          {workflow.name}
+                        </Typography>
+                        <Chip label={workflow.version} size="small" variant="outlined" />
+                      </Box>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                          Workflow ID
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontFamily: "monospace", color: "text.secondary" }}>
+                          {workflow.id?.substring(0, 16)}...
+                        </Typography>
+                      </Box>
+                      <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                          Project
+                        </Typography>
+                        <Chip label={workflow.projectId || "default"} size="small" />
+                      </Box>
+                      <Box sx={{ display: "flex", gap: 1, mt: "auto" }}>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<ViewIcon />}
+                          onClick={() => navigate(`/workflows/${workflow.id}`)}
+                          fullWidth
+                        >
+                          View
+                        </Button>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<PlayIcon />}
+                          onClick={() => handleExecuteClick(workflow)}
+                          fullWidth
+                          sx={{
+                            backgroundColor: "#2e7d32",
+                            "&:hover": {
+                              backgroundColor: "#1b5e20",
+                            },
+                          }}
+                        >
+                          Execute
+                        </Button>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))
+            )}
+          </Grid>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 2 }}>
             <Typography variant="body2" color="text.secondary">
               Showing {page * rowsPerPage + 1}-{Math.min((page + 1) * rowsPerPage, filteredWorkflows.length)} of {filteredWorkflows.length} results
