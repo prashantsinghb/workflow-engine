@@ -30,7 +30,7 @@ func (r *RemoteExecutor) Execute(ctx context.Context, node *dag.Node, inputs map
 
 	mod, err := r.modules.GetModule(ctx, "", node.Uses, "")
 	if err != nil {
-		return nil, errors.New("step not found in registry: " + node.Executor)
+		return nil, errors.New("step not found in registry: " + node.Uses)
 	}
 
 	protocol, ok := mod.RuntimeConfig["protocol"].(string)
@@ -45,9 +45,9 @@ func (r *RemoteExecutor) Execute(ctx context.Context, node *dag.Node, inputs map
 
 	switch protocol {
 	case "http":
-		return executeHTTP(endpoint, node.Executor, inputs)
+		return executeHTTP(endpoint, node.Uses, inputs)
 	case "grpc":
-		return executeGRPC(endpoint, node.Executor, inputs)
+		return executeGRPC(endpoint, node.Uses, inputs)
 	}
 	return nil, errors.New("unsupported protocol: " + protocol)
 }

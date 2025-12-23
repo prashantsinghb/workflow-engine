@@ -98,6 +98,19 @@ func Build(def *api.Definition) *Graph {
 			}
 		}
 
+		if n.Compensate != nil {
+			comp := &Compensation{}
+			if uses, ok := n.Compensate["uses"].(string); ok {
+				comp.Uses = uses
+			}
+			if with, ok := n.Compensate["with"].(map[string]interface{}); ok {
+				comp.With = with
+			}
+			if comp.Uses != "" {
+				node.Compensate = comp
+			}
+		}
+
 		g.Nodes[NodeID(id)] = node
 	}
 

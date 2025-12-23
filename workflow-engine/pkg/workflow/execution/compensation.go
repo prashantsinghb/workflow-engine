@@ -20,6 +20,16 @@ func (e *Engine) compensate(
 
 	log.Printf("[Compensation] Starting compensation: execution_id=%s", execID)
 
+	// Record high-level compensation start event
+	_ = e.EventStore.Append(ctx, &executionModel.ExecutionEvent{
+		ExecutionID: execID,
+		EventType:   "COMPENSATION_STARTED",
+		Message:     "Compensation started",
+		Payload: map[string]any{
+			"note": "best-effort compensation triggered after failure",
+		},
+	})
+
 	// Reload workflow + DAG (safe & explicit)
 	exec, err := e.ExecStore.Get(ctx, "", execID)
 	if err != nil {
@@ -75,15 +85,46 @@ func (e *Engine) compensate(
 			dagNode.Compensate.Uses,
 		)
 
+		// Record per-node compensation start event
+		_ = e.EventStore.Append(ctx, &executionModel.ExecutionEvent{
+			ExecutionID: execID,
+			NodeID:      &node.NodeID,
+			EventType:   "COMPENSATION_NODE_STARTED",
+			Message:     "Compensation step started",
+			Payload: map[string]any{
+				"compensate_uses": dagNode.Compensate.Uses,
+			},
+		})
+
 		mod, err := e.ModuleReg.Resolve(ctx, "", dagNode.Compensate.Uses)
 		if err != nil {
 			log.Printf("[Compensation] Module resolve failed: %v", err)
+			_ = e.EventStore.Append(ctx, &executionModel.ExecutionEvent{
+				ExecutionID: execID,
+				NodeID:      &node.NodeID,
+				EventType:   "COMPENSATION_NODE_FAILED",
+				Message:     "Compensation module resolve failed",
+				Payload: map[string]any{
+					"compensate_uses": dagNode.Compensate.Uses,
+					"error":           err.Error(),
+				},
+			})
 			continue
 		}
 
 		execImpl, err := executor.Get(mod.Runtime)
 		if err != nil {
 			log.Printf("[Compensation] Executor load failed: %v", err)
+			_ = e.EventStore.Append(ctx, &executionModel.ExecutionEvent{
+				ExecutionID: execID,
+				NodeID:      &node.NodeID,
+				EventType:   "COMPENSATION_NODE_FAILED",
+				Message:     "Compensation executor load failed",
+				Payload: map[string]any{
+					"compensate_uses": dagNode.Compensate.Uses,
+					"error":           err.Error(),
+				},
+			})
 			continue
 		}
 
@@ -103,9 +144,37 @@ func (e *Engine) compensate(
 				node.NodeID,
 				err,
 			)
+			_ = e.EventStore.Append(ctx, &executionModel.ExecutionEvent{
+				ExecutionID: execID,
+				NodeID:      &node.NodeID,
+				EventType:   "COMPENSATION_NODE_FAILED",
+				Message:     "Compensation step execution failed",
+				Payload: map[string]any{
+				 "compensate_uses": dagNode.Compensate.Uses,
+				 "error":           err.Error(),
+				},
+			})
+			continue
 		}
+
+		// Record per-node compensation success
+		_ = e.EventStore.Append(ctx, &executionModel.ExecutionEvent{
+			ExecutionID: execID,
+			NodeID:      &node.NodeID,
+			EventType:   "COMPENSATION_NODE_SUCCEEDED",
+			Message:     "Compensation step succeeded",
+			Payload: map[string]any{
+				"compensate_uses": dagNode.Compensate.Uses,
+			},
+		})
 	}
 
 	log.Printf("[Compensation] Completed: execution_id=%s", execID)
+	// Record high-level completion event
+	_ = e.EventStore.Append(ctx, &executionModel.ExecutionEvent{
+		ExecutionID: execID,
+		EventType:   "COMPENSATION_COMPLETED",
+		Message:     "Compensation completed",
+	})
 	return nil
 }

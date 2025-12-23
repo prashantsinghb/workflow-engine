@@ -48,8 +48,7 @@ func (s *executionStore) Get(
 	projectID string,
 	executionID uuid.UUID,
 ) (*execution.Execution, error) {
-
-	row := s.db.QueryRowContext(ctx, `
+	query := `
 		SELECT
 			id, project_id, workflow_id,
 			client_request_id,
@@ -58,8 +57,17 @@ func (s *executionStore) Get(
 			started_at, completed_at,
 			created_at, updated_at
 		FROM executions
-		WHERE project_id = $1 AND id = $2
-	`, projectID, executionID)
+	`
+
+	var row *sql.Row
+	if projectID == "" {
+		// Backwards-compatible: allow lookup by ID only when projectID is not known
+		query += ` WHERE id = $1`
+		row = s.db.QueryRowContext(ctx, query, executionID)
+	} else {
+		query += ` WHERE project_id = $1 AND id = $2`
+		row = s.db.QueryRowContext(ctx, query, projectID, executionID)
+	}
 
 	return scanExecution(row)
 }
