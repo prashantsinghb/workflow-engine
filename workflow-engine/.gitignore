@@ -13,11 +13,11 @@
 *.out
 
 # Generated files
-api/service/*.pb.go
-api/service/*_grpc.pb.go
-api/service/*.pb.gw.go
-api/service/*.pb.sdk.go
-api/service/swagger/
+# api/service/*.pb.go
+# api/service/*_grpc.pb.go
+# api/service/*.pb.gw.go
+# api/service/*.pb.sdk.go
+# api/service/swagger/
 
 # IDE
 .idea/
