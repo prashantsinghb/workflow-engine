@@ -444,8 +444,25 @@ func (e *Engine) isCompleted(nodes []execution.ExecutionNode, execID uuid.UUID) 
 	for _, node := range nodes {
 		switch node.Status {
 		case execution.NodeFailed:
-			log.Printf("[Engine] Execution failed due to node failure: execution_id=%s, failed_node_id=%s", execID, node.NodeID)
-			_ = e.ExecStore.MarkFailed(context.Background(), execID, map[string]any{"reason": "one or more nodes failed"})
+			log.Printf(
+				"[Engine] Execution failed due to node failure: execution_id=%s, failed_node_id=%s",
+				execID,
+				node.NodeID,
+			)
+
+			log.Printf("[Engine] Triggering compensation: execution_id=%s", execID)
+
+			// Best-effort compensation
+			_ = e.compensate(context.Background(), execID, nodes)
+
+			_ = e.ExecStore.MarkFailed(
+				context.Background(),
+				execID,
+				map[string]any{
+					"reason": "node failed, compensation executed",
+				},
+			)
+
 			return true
 		case execution.NodePending, execution.NodeRetrying:
 			allSucceeded = false
